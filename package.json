@@ -1,0 +1,136 @@
+{
+  "name": "elastic-docs-v3-utilities",
+  "displayName": "Elastic Docs V3 Utilities",
+  "description": "VSCode extension for Elastic Docs V3 Markdown authoring with directive autocompletion",
+  "version": "0.2.28",
+  "publisher": "elastic",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/elastic/elastic-docs-v3-vscode"
+  },
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "icon": "images/icon.png",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "markdown",
+        "extensions": [
+          ".md"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "path": "./syntaxes/elastic-markdown.tmLanguage.json",
+        "scopeName": "elastic-directives.injection",
+        "injectTo": [
+          "text.html.markdown"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "elastic-docs-v3.replaceEntireLine",
+        "title": "Replace entire line"
+      }
+    ],
+    "configurationDefaults": {
+      "editor.tokenColorCustomizations": {
+        "textMateRules": [
+          {
+            "scope": "markup.directive.punctuation.elastic",
+            "settings": {
+              "foreground": "#569cd6",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "markup.directive.punctuation.brace.elastic",
+            "settings": {
+              "foreground": "#569cd6",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "markup.directive.name.elastic",
+            "settings": {
+              "foreground": "#4ec9b0",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "markup.directive.argument.elastic",
+            "settings": {
+              "foreground": "#ce9178",
+              "fontStyle": "italic"
+            }
+          },
+          {
+            "scope": "markup.directive.parameter.name.elastic",
+            "settings": {
+              "foreground": "#9cdcfe",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "markup.directive.parameter.punctuation.elastic",
+            "settings": {
+              "foreground": "#9cdcfe"
+            }
+          },
+          {
+            "scope": "markup.directive.parameter.value.elastic",
+            "settings": {
+              "foreground": "#ce9178"
+            }
+          },
+          {
+            "scope": "markup.role.name.elastic",
+            "settings": {
+              "foreground": "#c586c0",
+              "fontStyle": "bold"
+            }
+          },
+          {
+            "scope": "markup.role.punctuation.elastic",
+            "settings": {
+              "foreground": "#c586c0"
+            }
+          },
+          {
+            "scope": "markup.role.content.elastic",
+            "settings": {
+              "foreground": "#d7ba7d"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.45.0",
+    "eslint": "^8.28.0",
+    "typescript": "^4.9.4"
+  }
+}

@@ -1,0 +1,2 @@
+Elastic Docs V3 Autocomplete Extension for VS Code
+Copyright 2025 Elasticsearch B.V.

@@ -1,0 +1,51 @@
+# Compiled output
+/out/
+/dist/
+*.js
+*.js.map
+
+# Dependencies
+node_modules/
+node_modules
+
+# VS Code extension packaging
+*.vsix
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+.claude
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+.idea/
+
+# Temporary files
+*.tmp
+*.temp
+out/
+out

@@ -1,0 +1,101 @@
+{
+  "name": "Elastic Markdown Directives Injection",
+  "scopeName": "elastic-directives.injection",
+  "injectionSelector": "L:text.html.markdown",
+  "patterns": [
+    {
+      "include": "#elastic-directive-lines"
+    },
+    {
+      "include": "#elastic-roles"
+    }
+  ],
+  "repository": {
+    "elastic-directive-lines": {
+      "patterns": [
+        {
+          "name": "markup.directive.punctuation.elastic",
+          "match": "^(:{3,})(\\{)([a-zA-Z][a-zA-Z0-9_-]*)(\\})(?:\\s+(.*))?$",
+          "captures": {
+            "1": {
+              "name": "markup.directive.punctuation.elastic"
+            },
+            "2": {
+              "name": "markup.directive.punctuation.brace.elastic"
+            },
+            "3": {
+              "name": "markup.directive.name.elastic"
+            },
+            "4": {
+              "name": "markup.directive.punctuation.brace.elastic"
+            },
+            "5": {
+              "name": "markup.directive.argument.elastic"
+            }
+          }
+        },
+        {
+          "name": "markup.directive.punctuation.elastic",
+          "match": "^(:{3,})$",
+          "captures": {
+            "1": {
+              "name": "markup.directive.punctuation.elastic"
+            }
+          }
+        }
+      ]
+    },
+    "elastic-roles": {
+      "patterns": [
+        {
+          "name": "markup.role.icon.elastic",
+          "match": "(\\{)(icon)(\\})(`)([^`]+)(`)",
+          "captures": {
+            "1": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "2": {
+              "name": "markup.role.name.elastic"
+            },
+            "3": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "4": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "5": {
+              "name": "markup.role.content.elastic"
+            },
+            "6": {
+              "name": "markup.role.punctuation.elastic"
+            }
+          }
+        },
+        {
+          "name": "markup.role.kbd.elastic",
+          "match": "(\\{)(kbd)(\\})(`)([^`]+)(`)",
+          "captures": {
+            "1": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "2": {
+              "name": "markup.role.name.elastic"
+            },
+            "3": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "4": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "5": {
+              "name": "markup.role.content.elastic"
+            },
+            "6": {
+              "name": "markup.role.punctuation.elastic"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
