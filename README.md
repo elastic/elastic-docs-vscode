@@ -103,3 +103,7 @@ syntaxes/
 ## License
 
 See [LICENSE.txt](LICENSE.txt) for details.
+
+:::{admonition} Custom Title
+Content here...
+::::

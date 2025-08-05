@@ -1,191 +1,361 @@
 import * as vscode from 'vscode';
 import { DIRECTIVES } from './directives';
 
+/**
+ * Represents a directive block in the document
+ */
 interface DirectiveBlock {
+    /** The full text of the opening line */
     opening: string;
+    
+    /** Range in the document where the opening line appears */
     openingRange: vscode.Range;
+    
+    /** The directive name */
     name: string;
+    
+    /** Range of the directive name */
     nameRange: vscode.Range;
+    
+    /** Optional argument after the directive name */
     argument?: string;
+    
+    /** Range of the argument if present */
     argumentRange?: vscode.Range;
+    
+    /** The full text of the closing line */
     closing?: string;
+    
+    /** Range in the document where the closing line appears */
     closingRange?: vscode.Range;
+    
+    /** Number of colons in the opening directive */
     openingColons: number;
+    
+    /** Number of colons in the closing directive */
     closingColons?: number;
+    
+    /** Parameters within the directive */
     parameters: Parameter[];
+    
+    /** Line numbers of content lines within the directive */
     contentLines: number[];
+    
+    /** Indicates if the directive syntax is malformed */
     isMalformed?: boolean;
+    
+    /** Indicates a specific malformation: missing closing brace */
     missingClosingBrace?: boolean;
 }
 
+/**
+ * Represents a parameter within a directive
+ */
 interface Parameter {
+    /** Parameter name */
     name: string;
+    
+    /** Parameter value (if any) */
     value?: string;
+    
+    /** Range in the document where the parameter appears */
     range: vscode.Range;
 }
 
+/**
+ * Provides diagnostics for Elastic Docs directives
+ * Identifies syntax errors and provides validation warnings
+ */
 export class DirectiveDiagnosticProvider {
+    /**
+     * Analyzes a document and returns diagnostics for directive issues
+     * @param document The document to analyze
+     * @returns Array of diagnostic objects for the document
+     */
     provideDiagnostics(document: vscode.TextDocument): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
         
-        // Parse the entire document for directive blocks
-        const directiveBlocks = this.parseDirectiveBlocks(document);
-        
-        // Validate each block
-        for (const block of directiveBlocks) {
-            const errors = this.validateDirectiveBlock(block, document);
-            diagnostics.push(...errors);
+        try {
+            // Parse the entire document for directive blocks
+            const directiveBlocks = this.analyzeDocumentStructure(document);
+            
+            // Validate each block and collect diagnostics
+            for (const block of directiveBlocks) {
+                const blockDiagnostics = this.validateDirectiveBlock(block);
+                diagnostics.push(...blockDiagnostics);
+            }
+        } catch (error) {
+            console.error('Error in directive diagnostics:', error);
         }
         
         return diagnostics;
     }
     
-    private parseDirectiveBlocks(document: vscode.TextDocument): DirectiveBlock[] {
+    /**
+     * Analyzes the document and identifies all directive blocks
+     * @param document The document to analyze
+     * @returns Array of DirectiveBlock objects representing the structure
+     */
+    private analyzeDocumentStructure(document: vscode.TextDocument): DirectiveBlock[] {
         const blocks: DirectiveBlock[] = [];
         const blockStack: DirectiveBlock[] = [];
         
-        console.log('[Elastic Docs] Starting to parse directive blocks for:', document.uri.toString());
-        
+        // Process each line in the document
         for (let lineNum = 0; lineNum < document.lineCount; lineNum++) {
             const line = document.lineAt(lineNum);
             const lineText = line.text;
             
-            // Check for properly formatted opening directive
-            const openingMatch = lineText.match(/^(:{3,})\{([a-zA-Z][a-zA-Z0-9_-]*)\}(?:\s+(.*))?$/);
-            if (openingMatch) {
-                console.log(`[Elastic Docs] Line ${lineNum}: Found opening directive:`, {
-                    line: lineText,
-                    colonCount: openingMatch[1].length,
-                    name: openingMatch[2],
-                    argument: openingMatch[3]
-                });
-                const newBlock = {
-                    opening: lineText,
-                    openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
-                    name: openingMatch[2],
-                    nameRange: new vscode.Range(lineNum, openingMatch[1].length + 1, lineNum, openingMatch[1].length + 1 + openingMatch[2].length),
-                    argument: openingMatch[3],
-                    argumentRange: openingMatch[3] ? new vscode.Range(lineNum, openingMatch[1].length + openingMatch[2].length + 2, lineNum, lineText.length) : undefined,
-                    openingColons: openingMatch[1].length,
-                    parameters: [],
-                    contentLines: []
-                };
-                blocks.push(newBlock);
-                blockStack.push(newBlock);
-                console.log(`[Elastic Docs] Stack after adding '${newBlock.name}':`, blockStack.map(b => `${b.name}(${b.openingColons})`));
+            // Try to match different directive patterns
+            if (this.processOpeningDirective(lineNum, lineText, blocks, blockStack)) {
                 continue;
             }
             
-            // Check for malformed opening directive (missing closing brace)
-            const malformedMissingBraceMatch = lineText.match(/^(:{3,})\{([a-zA-Z][a-zA-Z0-9_-]*)(?:\s+(.*))?$/);
-            if (malformedMissingBraceMatch) {
-                const newBlock = {
-                    opening: lineText,
-                    openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
-                    name: malformedMissingBraceMatch[2],
-                    nameRange: new vscode.Range(lineNum, malformedMissingBraceMatch[1].length + 1, lineNum, malformedMissingBraceMatch[1].length + 1 + malformedMissingBraceMatch[2].length),
-                    argument: malformedMissingBraceMatch[3],
-                    argumentRange: malformedMissingBraceMatch[3] ? new vscode.Range(lineNum, malformedMissingBraceMatch[1].length + malformedMissingBraceMatch[2].length + 2, lineNum, lineText.length) : undefined,
-                    openingColons: malformedMissingBraceMatch[1].length,
-                    parameters: [],
-                    contentLines: [],
-                    isMalformed: true,
-                    missingClosingBrace: true
-                };
-                blocks.push(newBlock);
-                blockStack.push(newBlock);
+            if (this.processMalformedDirective(lineNum, lineText, blocks, blockStack)) {
                 continue;
             }
             
-            // Check for malformed opening directive (missing braces entirely)
-            const malformedMatch = lineText.match(/^(:{3,})([a-zA-Z][a-zA-Z0-9_-]*)(?:\s+(.*))?$/);
-            if (malformedMatch) {
-                const newBlock = {
-                    opening: lineText,
-                    openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
-                    name: malformedMatch[2],
-                    nameRange: new vscode.Range(lineNum, malformedMatch[1].length, lineNum, malformedMatch[1].length + malformedMatch[2].length),
-                    argument: malformedMatch[3],
-                    argumentRange: malformedMatch[3] ? new vscode.Range(lineNum, malformedMatch[1].length + malformedMatch[2].length + 1, lineNum, lineText.length) : undefined,
-                    openingColons: malformedMatch[1].length,
-                    parameters: [],
-                    contentLines: [],
-                    isMalformed: true
-                };
-                blocks.push(newBlock);
-                blockStack.push(newBlock);
+            if (this.processClosingDirective(lineNum, lineText, blockStack)) {
                 continue;
             }
             
-            // Check for closing directive
-            const closingMatch = lineText.match(/^(:+)\s*$/);
-            if (closingMatch && blockStack.length > 0) {
-                const colonCount = closingMatch[1].length;
-                console.log(`[Elastic Docs] Line ${lineNum}: Found closing with ${colonCount} colons`);
-                console.log(`[Elastic Docs] Current stack:`, blockStack.map(b => `${b.name}(${b.openingColons})`));
-                
-                // Find the most recent unmatched block with matching colon count
-                // We search backwards through the stack to handle nested directives
-                let matched = false;
-                for (let i = blockStack.length - 1; i >= 0; i--) {
-                    const block = blockStack[i];
-                    console.log(`[Elastic Docs] Checking block '${block.name}' with ${block.openingColons} colons, already closed: ${!!block.closing}`);
-                    if (block.openingColons === colonCount && !block.closing) {
-                        console.log(`[Elastic Docs] MATCHED! Closing '${block.name}' with ${colonCount} colons`);
-                        block.closing = lineText;
-                        block.closingRange = new vscode.Range(lineNum, 0, lineNum, lineText.length);
-                        block.closingColons = colonCount;
-                        // Remove this block and all blocks after it from the stack
-                        blockStack.splice(i);
-                        matched = true;
-                        break;
-                    }
-                }
-                if (!matched) {
-                    console.log(`[Elastic Docs] WARNING: No matching opening found for ${colonCount} colons at line ${lineNum}`);
-                }
-                console.log(`[Elastic Docs] Stack after closing:`, blockStack.map(b => `${b.name}(${b.openingColons})`));
-                continue;
-            }
-            
-            // Check for parameters - add to the most recent unclosed block
-            if (blockStack.length > 0) {
-                const currentBlock = blockStack[blockStack.length - 1];
-                const paramMatch = lineText.match(/^:([a-zA-Z][a-zA-Z0-9_-]*):(?:\s+(.*))?$/);
-                if (paramMatch) {
-                    currentBlock.parameters.push({
-                        name: paramMatch[1],
-                        value: paramMatch[2],
-                        range: new vscode.Range(lineNum, 0, lineNum, lineText.length)
-                    });
-                } else {
-                    // Regular content line - add to the most recent block
-                    currentBlock.contentLines.push(lineNum);
-                }
-            }
+            // If none of the above, it might be a parameter or content line
+            this.processContentOrParameter(lineNum, lineText, blockStack);
         }
-        
-        // Log any unclosed blocks
-        if (blockStack.length > 0) {
-            console.log('[Elastic Docs] WARNING: Unclosed blocks remaining:', blockStack.map(b => `${b.name}(${b.openingColons}) at line ${b.openingRange.start.line}`));
-        }
-        
-        console.log(`[Elastic Docs] Parsing complete. Found ${blocks.length} total blocks`);
-        blocks.forEach((block, i) => {
-            console.log(`[Elastic Docs] Block ${i}: ${block.name}(${block.openingColons}) - Closed: ${!!block.closing}`);
-        });
         
         return blocks;
     }
     
-    private validateDirectiveBlock(block: DirectiveBlock, _document: vscode.TextDocument): vscode.Diagnostic[] {
-        const diagnostics: vscode.Diagnostic[] = [];
+    /**
+     * Processes a line that looks like a properly formatted opening directive
+     * @param lineNum Line number
+     * @param lineText Text of the line
+     * @param blocks Array of all blocks
+     * @param blockStack Stack of currently open blocks
+     * @returns True if the line was processed as an opening directive
+     */
+    private processOpeningDirective(
+        lineNum: number, 
+        lineText: string, 
+        blocks: DirectiveBlock[], 
+        blockStack: DirectiveBlock[]
+    ): boolean {
+        // Pattern: :::{directiveName} [argument]
+        const openingMatch = lineText.match(/^(:{3,})\{([a-zA-Z][a-zA-Z0-9_-]*)\}(?:\s+(.*))?$/);
+        if (!openingMatch) {
+            return false;
+        }
         
-        console.log(`[Elastic Docs] Validating block '${block.name}' (${block.openingColons} colons) - Has closing: ${!!block.closing}`);
+        const colonCount = openingMatch[1].length;
+        const directiveName = openingMatch[2];
+        const argument = openingMatch[3];
+        
+        // Create a new block for this directive
+        const newBlock: DirectiveBlock = {
+            opening: lineText,
+            openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
+            name: directiveName,
+            nameRange: new vscode.Range(
+                lineNum, 
+                openingMatch[1].length + 1, 
+                lineNum, 
+                openingMatch[1].length + 1 + directiveName.length
+            ),
+            openingColons: colonCount,
+            parameters: [],
+            contentLines: [],
+        };
+        
+        // Add argument details if present
+        if (argument) {
+            newBlock.argument = argument;
+            newBlock.argumentRange = new vscode.Range(
+                lineNum, 
+                openingMatch[1].length + directiveName.length + 2, 
+                lineNum, 
+                lineText.length
+            );
+        }
+        
+        // Add to our collections
+        blocks.push(newBlock);
+        blockStack.push(newBlock);
+        return true;
+    }
+    
+    /**
+     * Processes a line that looks like a malformed opening directive
+     * @param lineNum Line number
+     * @param lineText Text of the line
+     * @param blocks Array of all blocks
+     * @param blockStack Stack of currently open blocks
+     * @returns True if the line was processed as a malformed directive
+     */
+    private processMalformedDirective(
+        lineNum: number, 
+        lineText: string, 
+        blocks: DirectiveBlock[], 
+        blockStack: DirectiveBlock[]
+    ): boolean {
+        // Case 1: Missing closing brace - :::{name
+        const missingBraceMatch = lineText.match(/^(:{3,})\{([a-zA-Z][a-zA-Z0-9_-]*)(?:\s+(.*))?$/);
+        if (missingBraceMatch) {
+            const block = this.createMalformedBlock(
+                lineNum, lineText, missingBraceMatch, true
+            );
+            blocks.push(block);
+            blockStack.push(block);
+            return true;
+        }
+        
+        // Case 2: Missing braces entirely - :::name
+        const noBracesMatch = lineText.match(/^(:{3,})([a-zA-Z][a-zA-Z0-9_-]*)(?:\s+(.*))?$/);
+        if (noBracesMatch) {
+            const block = this.createMalformedBlock(
+                lineNum, lineText, noBracesMatch, false
+            );
+            blocks.push(block);
+            blockStack.push(block);
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Creates a block object for a malformed directive
+     * @param lineNum Line number
+     * @param lineText Text of the line
+     * @param match RegExp match result
+     * @param missingClosingBrace Whether this is missing a closing brace
+     * @returns A DirectiveBlock object
+     */
+    private createMalformedBlock(
+        lineNum: number, 
+        lineText: string, 
+        match: RegExpMatchArray,
+        missingClosingBrace: boolean
+    ): DirectiveBlock {
+        const colonCount = match[1].length;
+        const directiveName = match[2];
+        const argument = match[3];
+        
+        const block: DirectiveBlock = {
+            opening: lineText,
+            openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
+            name: directiveName,
+            nameRange: new vscode.Range(
+                lineNum, 
+                match[1].length + (missingClosingBrace ? 1 : 0), 
+                lineNum, 
+                match[1].length + (missingClosingBrace ? 1 : 0) + directiveName.length
+            ),
+            openingColons: colonCount,
+            parameters: [],
+            contentLines: [],
+            isMalformed: true,
+            missingClosingBrace: missingClosingBrace
+        };
+        
+        // Add argument details if present
+        if (argument) {
+            block.argument = argument;
+            block.argumentRange = new vscode.Range(
+                lineNum, 
+                match[1].length + directiveName.length + (missingClosingBrace ? 2 : 1), 
+                lineNum, 
+                lineText.length
+            );
+        }
+        
+        return block;
+    }
+    
+    /**
+     * Processes a line that looks like a closing directive
+     * @param lineNum Line number
+     * @param lineText Text of the line
+     * @param blockStack Stack of currently open blocks
+     * @returns True if the line was processed as a closing directive
+     */
+    private processClosingDirective(
+        lineNum: number, 
+        lineText: string, 
+        blockStack: DirectiveBlock[]
+    ): boolean {
+        // Pattern: ::: (just colons)
+        const closingMatch = lineText.match(/^(:+)\s*$/);
+        if (!closingMatch || blockStack.length === 0) {
+            return false;
+        }
+        
+        const colonCount = closingMatch[1].length;
+        
+        // Find the matching open block to close
+        // Process from the end of the stack to handle nested directives correctly
+        for (let i = blockStack.length - 1; i >= 0; i--) {
+            const block = blockStack[i];
+            
+            // If this is a match for an unclosed block
+            if (block.openingColons === colonCount && !block.closing) {
+                // Update the block with closing details
+                block.closing = lineText;
+                block.closingRange = new vscode.Range(lineNum, 0, lineNum, lineText.length);
+                block.closingColons = colonCount;
+                
+                // Remove this block and all blocks after it from the stack
+                blockStack.splice(i);
+                return true;
+            }
+        }
+        
+        // If we get here, it's a closing directive without a matching opening
+        return true;
+    }
+    
+    /**
+     * Processes a line that might be content or a parameter
+     * @param lineNum Line number
+     * @param lineText Text of the line
+     * @param blockStack Stack of currently open blocks
+     */
+    private processContentOrParameter(
+        lineNum: number, 
+        lineText: string, 
+        blockStack: DirectiveBlock[]
+    ): void {
+        // Only process if we're inside at least one block
+        if (blockStack.length === 0) {
+            return;
+        }
+        
+        // Get the innermost block
+        const currentBlock = blockStack[blockStack.length - 1];
+        
+        // Check if this is a parameter line
+        const paramMatch = lineText.match(/^:([a-zA-Z][a-zA-Z0-9_-]*):(?:\s+(.*))?$/);
+        if (paramMatch) {
+            // Add this as a parameter to the current block
+            currentBlock.parameters.push({
+                name: paramMatch[1],
+                value: paramMatch[2],
+                range: new vscode.Range(lineNum, 0, lineNum, lineText.length)
+            });
+        } else {
+            // Otherwise it's just content
+            currentBlock.contentLines.push(lineNum);
+        }
+    }
+    
+    /**
+     * Validates a directive block and returns diagnostics for any issues
+     * @param block The directive block to validate
+     * @returns Array of diagnostics for issues with this block
+     */
+    private validateDirectiveBlock(block: DirectiveBlock): vscode.Diagnostic[] {
+        const diagnostics: vscode.Diagnostic[] = [];
         
         // 1. Check for missing closing directive
         if (!block.closing) {
-            console.log(`[Elastic Docs] ERROR: Missing closing directive for '${block.name}' at line ${block.openingRange.start.line}`);
             diagnostics.push(new vscode.Diagnostic(
                 block.openingRange,
                 `Missing closing directive. Expected ${':'.repeat(block.openingColons)}`,
@@ -252,4 +422,4 @@ export class DirectiveDiagnosticProvider {
         
         return diagnostics;
     }
-} 
+}

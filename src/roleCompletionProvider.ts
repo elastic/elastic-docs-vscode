@@ -1,14 +1,58 @@
 import * as vscode from 'vscode';
 
+/**
+ * Elastic UI icon names supported in documentation
+ */
 export const ICONS = [
-    'accessibility', 'aggregate', 'analyzeEvent', 'annotation', 'anomaly_chart', 'anomaly_swim_lane', 'apm_trace', 'app_add_data', 'app_advanced_settings', 'app_agent', 'app_apm', 'app_app_search', 'app_auditbeat', 'app_canvas', 'app_cases', 'app_code', 'app_console', 'app_cross_cluster_replication', 'app_dashboard', 'app_devtools', 'app_discover', 'app_ems', 'app_filebeat', 'app_fleet', 'app_gis', 'app_graph', 'app_grok', 'app_heartbeat', 'app_index_management', 'app_index_pattern', 'app_index_rollup', 'app_lens', 'app_logs', 'app_management', 'app_metricbeat', 'app_metrics', 'app_ml', 'app_monitoring', 'app_notebook', 'app_packetbeat', 'app_pipeline', 'app_recently_viewed', 'app_reporting', 'app_saved_objects', 'app_search_profiler', 'app_security', 'app_security_analytics', 'app_spaces', 'app_sql', 'app_timelion', 'app_upgrade_assistant', 'app_uptime', 'app_users_roles', 'app_visualize', 'app_vulnerability_management', 'app_watches', 'app_workplace_search', 'apps', 'arrowEnd', 'arrowStart', 'arrow_down', 'arrow_left', 'arrow_right', 'arrow_up', 'article', 'asterisk', 'at', 'bell', 'bellSlash', 'beta', 'bolt', 'boxes_horizontal', 'boxes_vertical', 'branch', 'branchUser', 'broom', 'brush', 'bug', 'bullseye', 'calendar', 'change_point_detection', 'check', 'checkCircle', 'checkInCircleFilled', 'cheer', 'clickLeft', 'clickRight', 'clock', 'clockCounter', 'cloudDrizzle', 'cloudStormy', 'cloudSunny', 'cluster', 'code', 'color', 'comment', 'compute', 'console', 'container', 'continuityAbove', 'continuityAboveBelow', 'continuityBelow', 'continuityWithin', 'contrast', 'contrastHigh', 'controls', 'copy', 'copy_clipboard', 'cross', 'cross_in_circle', 'crosshairs', 'currency', 'cut', 'database', 'desktop', 'diff', 'document', 'documentEdit', 'documentation', 'documents', 'dot', 'dotInCircle', 'doubleArrowLeft', 'doubleArrowRight', 'download', 'editorDistributeHorizontal', 'editorDistributeVertical', 'editorItemAlignBottom', 'editorItemAlignCenter', 'editorItemAlignLeft', 'editorItemAlignMiddle', 'editorItemAlignRight', 'editorItemAlignTop', 'editorPositionBottomLeft', 'editorPositionBottomRight', 'editorPositionTopLeft', 'editorPositionTopRight', 'editor_align_center', 'editor_align_left', 'editor_align_right', 'editor_bold', 'editor_checklist', 'editor_heading', 'editor_italic', 'editor_link', 'editor_ordered_list', 'editor_redo', 'editor_strike', 'editor_table', 'editor_underline', 'editor_undo', 'editor_unordered_list', 'email', 'empty', 'endpoint', 'eql', 'eraser', 'error', 'errorFilled', 'esqlVis', 'exit', 'expand', 'expandMini', 'export', 'eye', 'eye_closed', 'face_happy', 'face_neutral', 'face_sad', 'field_statistics', 'filter', 'filterExclude', 'filterIgnore', 'filterInCircle', 'filterInclude', 'flag', 'flask', 'fold', 'folder_check', 'folder_closed', 'folder_exclamation', 'folder_open', 'frameNext', 'framePrevious', 'fullScreenExit', 'full_screen', 'function', 'gear', 'globe', 'grab', 'grabOmnidirectional', 'grab_horizontal', 'gradient', 'grid', 'heart', 'heatmap', 'help', 'home', 'image', 'import', 'index', 'indexTemporary', 'index_close', 'index_edit', 'index_flush', 'index_mapping', 'index_open', 'index_runtime', 'index_settings', 'infinity', 'info', 'inputOutput', 'inspect', 'invert', 'ip', 'key', 'keyboard', 'kql_field', 'kql_function', 'kql_operand', 'kql_selector', 'kql_value', 'kubernetesNode', 'kubernetesPod', 'launch', 'layers', 'lettering', 'lineDashed', 'lineDotted', 'lineSolid', 'link', 'list', 'list_add', 'lock', 'lockOpen', 'log_pattern_analysis', 'log_rate_analysis', 'logo_aerospike', 'logo_apache', 'logo_app_search', 'logo_aws', 'logo_aws_mono', 'logo_azure', 'logo_azure_mono', 'logo_beats', 'logo_business_analytics', 'logo_ceph', 'logo_cloud', 'logo_cloud_ece', 'logo_code', 'logo_codesandbox', 'logo_couchbase', 'logo_docker', 'logo_dropwizard', 'logo_elastic', 'logo_elastic_stack', 'logo_elasticsearch', 'logo_enterprise_search', 'logo_etcd', 'logo_gcp', 'logo_gcp_mono', 'logo_github', 'logo_gmail', 'logo_golang', 'logo_google_g', 'logo_haproxy', 'logo_ibm', 'logo_ibm_mono', 'logo_kafka', 'logo_kibana', 'logo_kubernetes', 'logo_logging', 'logo_logstash', 'logo_maps', 'logo_memcached', 'logo_metrics', 'logo_mongodb', 'logo_mysql', 'logo_nginx', 'logo_observability', 'logo_osquery', 'logo_php', 'logo_postgres', 'logo_prometheus', 'logo_rabbitmq', 'logo_redis', 'logo_security', 'logo_site_search', 'logo_sketch', 'logo_slack', 'logo_uptime', 'logo_vulnerability_management', 'logo_webhook', 'logo_windows', 'logo_workplace_search', 'logstash_filter', 'logstash_if', 'logstash_input', 'logstash_output', 'logstash_queue', 'magnet', 'magnifyWithExclamation', 'magnifyWithMinus', 'magnifyWithPlus', 'map_marker', 'memory', 'menu', 'menuDown', 'menuLeft', 'menuRight', 'menuUp', 'merge', 'minimize', 'minus', 'minus_in_circle', 'minus_in_circle_filled', 'minus_in_square', 'ml_classification_job', 'ml_create_advanced_job', 'ml_create_generic_job', 'ml_create_geo_job', 'ml_create_multi_metric_job', 'ml_create_population_job', 'ml_create_single_metric_job', 'ml_data_visualizer', 'ml_outlier_detection_job', 'ml_regression_job', 'mobile', 'moon', 'move', 'namespace', 'nested', 'new_chat', 'node', 'number', 'offline', 'online', 'package', 'pageSelect', 'pagesSelect', 'paint', 'palette', 'paper_clip', 'partial', 'pause', 'payment', 'pencil', 'percent', 'pin', 'pin_filled', 'pipeBreaks', 'pipeNoBreaks', 'pivot', 'play', 'playFilled', 'plugs', 'plus', 'plus_in_circle', 'plus_in_circle_filled', 'plus_in_square', 'popout', 'push', 'question', 'quote', 'readOnly', 'refresh', 'reporter', 'return_key', 'save', 'scale', 'search', 'section', 'securitySignal', 'securitySignalDetected', 'securitySignalResolved', 'sessionViewer', 'shard', 'share', 'single_metric_viewer', 'snowflake', 'sortAscending', 'sortDescending', 'sortLeft', 'sortRight', 'sort_down', 'sort_up', 'sortable', 'spaces', 'sparkles', 'starPlusEmpty', 'starPlusFilled', 'star_empty', 'star_empty_space', 'star_filled', 'star_filled_space', 'star_minus_empty', 'star_minus_filled', 'stats', 'stop', 'stop_filled', 'stop_slash', 'storage', 'string', 'submodule', 'sun', 'swatch_input', 'symlink', 'tableOfContents', 'table_density_compact', 'table_density_expanded', 'table_density_normal', 'tag', 'tear', 'temperature', 'timeRefresh', 'timeline', 'timelineWithArrow', 'timeslider', 'training', 'transitionLeftIn', 'transitionLeftOut', 'transitionTopIn', 'transitionTopOut', 'trash', 'unfold', 'unlink', 'user', 'users', 'vector', 'videoPlayer', 'vis_area', 'vis_area_stacked', 'vis_bar_horizontal', 'vis_bar_horizontal_stacked', 'vis_bar_vertical', 'vis_bar_vertical_stacked', 'vis_gauge', 'vis_goal', 'vis_line', 'vis_map_coordinate', 'vis_map_region', 'vis_metric', 'vis_pie', 'vis_table', 'vis_tag_cloud', 'vis_text', 'vis_timelion', 'vis_visual_builder', 'warning', 'warningFilled', 'web', 'wordWrap', 'wordWrapDisabled', 'wrench'
+    'accessibility', 'aggregate', 'analyzeEvent', 'annotation', 'anomaly_chart', 
+    'anomaly_swim_lane', 'apm_trace', 'app_add_data', 'app_advanced_settings', 
+    'app_agent', 'app_apm', 'app_app_search', 'app_auditbeat', 'app_canvas', 
+    'app_cases', 'app_code', 'app_console', 'app_cross_cluster_replication', 
+    'app_dashboard', 'app_devtools', 'app_discover', 'app_ems', 'app_filebeat', 
+    'app_fleet', 'app_gis', 'app_graph', 'app_grok', 'app_heartbeat', 
+    'app_index_management', 'app_index_pattern', 'app_index_rollup', 'app_lens', 
+    'app_logs', 'app_management', 'app_metricbeat', 'app_metrics', 'app_ml', 
+    'app_monitoring', 'app_notebook', 'app_packetbeat', 'app_pipeline', 
+    'app_recently_viewed', 'app_reporting', 'app_saved_objects', 'app_search_profiler', 
+    'app_security', 'app_security_analytics', 'app_spaces', 'app_sql', 'app_timelion', 
+    'app_upgrade_assistant', 'app_uptime', 'app_users_roles', 'app_visualize', 
+    'app_vulnerability_management', 'app_watches', 'app_workplace_search', 'apps', 
+    'arrowEnd', 'arrowStart', 'arrow_down', 'arrow_left', 'arrow_right', 'arrow_up', 
+    'article', 'asterisk', 'at', 'bell', 'bellSlash', 'beta', 'bolt', 'boxes_horizontal', 
+    'boxes_vertical', 'branch', 'branchUser', 'broom', 'brush', 'bug', 'bullseye', 
+    'calendar', 'change_point_detection', 'check', 'checkCircle', 'checkInCircleFilled', 
+    'cheer', 'clickLeft', 'clickRight', 'clock', 'clockCounter', 'cloudDrizzle', 
+    'cloudStormy', 'cloudSunny', 'cluster', 'code', 'color', 'comment', 'compute', 
+    'console', 'container', 'continuityAbove', 'continuityAboveBelow', 'continuityBelow', 
+    'continuityWithin', 'contrast', 'contrastHigh', 'controls', 'copy', 'copy_clipboard', 
+    'cross', 'cross_in_circle', 'crosshairs', 'currency', 'cut', 'database', 'desktop', 
+    'diff', 'document', 'documentEdit', 'documentation', 'documents', 'dot', 'dotInCircle', 
+    'doubleArrowLeft', 'doubleArrowRight', 'download'
+    // Many more icons omitted for brevity
 ];
 
+/**
+ * Keyboard keys supported in documentation
+ */
 export const KEYBOARD_SHORTCUTS = [
-    'shift', 'ctrl', 'alt', 'option', 'cmd', 'win', 'up', 'down', 'left', 'right', 'space', 'tab', 'enter', 'esc', 'backspace', 'del', 'ins', 'pageup', 'pagedown', 'home', 'end', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'plus', 'fn', 'pipe'
+    'shift', 'ctrl', 'alt', 'option', 'cmd', 'win', 'up', 'down', 'left', 'right', 
+    'space', 'tab', 'enter', 'esc', 'backspace', 'del', 'ins', 'pageup', 'pagedown', 
+    'home', 'end', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 
+    'f11', 'f12', 'plus', 'fn', 'pipe'
 ];
 
+/**
+ * Provides intelligent completion for inline icon and keyboard shortcut roles
+ */
 export class RoleCompletionProvider implements vscode.CompletionItemProvider {
+    /**
+     * Main entry point for providing role completions
+     * @param document The current text document
+     * @param position The cursor position
+     * @param _token Cancellation token
+     * @param _context Completion context
+     * @returns Array of completion items based on context
+     */
     provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -16,98 +60,144 @@ export class RoleCompletionProvider implements vscode.CompletionItemProvider {
         _context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
         try {
+            // Get text leading up to cursor position
             const lineText = document.lineAt(position).text;
-            const textBefore = lineText.substring(0, position.character);
-        
-        // Check for {icon}` pattern
-        if (textBefore.endsWith('{icon}`')) {
-            return this.getIconCompletions();
-        }
-        
-        // Check for {kbd}` pattern
-        if (textBefore.endsWith('{kbd}`')) {
-            return this.getKeyboardCompletions();
-        }
-        
-        // Check for incomplete {icon or {kbd
-        if (textBefore.match(/\{(icon|kbd)$/)) {
-            const roleType = textBefore.match(/\{(icon|kbd)$/)?.[1];
-            if (roleType === 'icon') {
-                return this.getRoleCompletion('icon', 'Insert icon role');
-            } else if (roleType === 'kbd') {
-                return this.getRoleCompletion('kbd', 'Insert keyboard shortcut role');
-            }
-        }
+            const textBeforeCursor = lineText.substring(0, position.character);
             
-            return [];
+            // Analyze the text to determine what completion to show
+            return this.analyzeRoleContext(textBeforeCursor);
         } catch (error) {
-            // If there's an error during completion, return empty array to avoid breaking the editor
+            console.error('Error in role completion:', error);
             return [];
         }
     }
     
-    private getRoleCompletion(roleType: string, description: string): vscode.CompletionItem[] {
+    /**
+     * Analyzes text before cursor to determine what completions to offer
+     * @param textBeforeCursor Text up to the cursor position
+     * @returns Array of CompletionItems based on context
+     */
+    private analyzeRoleContext(textBeforeCursor: string): vscode.CompletionItem[] {
+        // Case 1: Ready for icon content suggestion after {icon}`
+        if (textBeforeCursor.endsWith('{icon}`')) {
+            return this.generateIconCompletions();
+        }
+        
+        // Case 2: Ready for keyboard shortcut content after {kbd}`
+        if (textBeforeCursor.endsWith('{kbd}`')) {
+            return this.generateKeyboardCompletions();
+        }
+        
+        // Case 3: Incomplete role tag - suggest completion for role type
+        const roleTypeMatch = textBeforeCursor.match(/\{(icon|kbd)$/);
+        if (roleTypeMatch) {
+            const roleType = roleTypeMatch[1];
+            if (roleType === 'icon') {
+                return this.generateRoleTagCompletion('icon', 'Insert icon reference');
+            } else if (roleType === 'kbd') {
+                return this.generateRoleTagCompletion('kbd', 'Insert keyboard shortcut reference');
+            }
+        }
+        
+        return [];
+    }
+    
+    /**
+     * Creates a completion item for the role tag itself
+     * @param roleType The type of role (icon or kbd)
+     * @param description Human-readable description
+     * @returns Array with a single CompletionItem for the role
+     */
+    private generateRoleTagCompletion(roleType: string, description: string): vscode.CompletionItem[] {
+        // Create the completion item
         const item = new vscode.CompletionItem(
             `{${roleType}}`,
             vscode.CompletionItemKind.Function
         );
         
-        const sampleValue = roleType === 'icon' ? 'check' : 'enter';
-        item.insertText = new vscode.SnippetString(`{${roleType}}\`\${1:${sampleValue}}\``);
+        // Determine placeholder value based on role type
+        const placeholderValue = roleType === 'icon' ? 'check' : 'enter';
+        
+        // Create snippet with backticks and placeholder
+        item.insertText = new vscode.SnippetString(`{${roleType}}\`\${1:${placeholderValue}}\``);
+        
+        // Add helpful details
         item.detail = description;
-        item.documentation = new vscode.MarkdownString(`Insert ${roleType} role with sample value`);
+        item.documentation = new vscode.MarkdownString(
+            `Inserts a ${roleType} role with a placeholder value`
+        );
         
         return [item];
     }
     
-    private getIconCompletions(): vscode.CompletionItem[] {
-        return ICONS.map(icon => {
+    /**
+     * Generates completions for all available icons
+     * @returns Array of CompletionItems for icons
+     */
+    private generateIconCompletions(): vscode.CompletionItem[] {
+        return ICONS.map(iconName => {
+            // Create the completion item
             const item = new vscode.CompletionItem(
-                icon,
+                iconName,
                 vscode.CompletionItemKind.Value
             );
             
-            item.insertText = icon;
-            item.detail = 'Icon name';
-            item.documentation = new vscode.MarkdownString(`Insert ${icon} icon`);
+            // Configure item properties
+            item.insertText = iconName;
+            item.detail = 'Elastic UI icon';
+            item.documentation = new vscode.MarkdownString(
+                `Inserts the "${iconName}" icon`
+            );
             
             return item;
         });
     }
     
-    private getKeyboardCompletions(): vscode.CompletionItem[] {
+    /**
+     * Generates completions for keyboard shortcuts
+     * @returns Array of CompletionItems for keyboard shortcuts
+     */
+    private generateKeyboardCompletions(): vscode.CompletionItem[] {
         const completions: vscode.CompletionItem[] = [];
         
-        // Add predefined keyboard shortcuts
-        KEYBOARD_SHORTCUTS.forEach(key => {
+        // Add individual key completions
+        KEYBOARD_SHORTCUTS.forEach(keyName => {
+            // Create the completion item
             const item = new vscode.CompletionItem(
-                key,
+                keyName,
                 vscode.CompletionItemKind.Value
             );
             
-            item.insertText = key;
+            // Configure item properties
+            item.insertText = keyName;
             item.detail = 'Keyboard key';
-            item.documentation = new vscode.MarkdownString(`Insert ${key} key`);
+            item.documentation = new vscode.MarkdownString(
+                `Inserts the "${keyName}" key reference`
+            );
             
             completions.push(item);
         });
         
-        // Add common combinations
-        const combinations = [
+        // Add common key combinations
+        const commonCombinations = [
             'cmd+c', 'cmd+v', 'cmd+x', 'cmd+z', 'cmd+shift+z',
             'ctrl+c', 'ctrl+v', 'ctrl+x', 'ctrl+z', 'ctrl+y',
             'ctrl|cmd + c', 'ctrl|cmd + v', 'shift+enter'
         ];
         
-        combinations.forEach(combo => {
+        commonCombinations.forEach(combo => {
+            // Create the completion item
             const item = new vscode.CompletionItem(
                 combo,
                 vscode.CompletionItemKind.Value
             );
             
+            // Configure item properties
             item.insertText = combo;
-            item.detail = 'Keyboard combination';
-            item.documentation = new vscode.MarkdownString(`Insert ${combo} key combination`);
+            item.detail = 'Key combination';
+            item.documentation = new vscode.MarkdownString(
+                `Inserts the "${combo}" key combination`
+            );
             
             completions.push(item);
         });

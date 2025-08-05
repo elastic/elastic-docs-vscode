@@ -1,11 +1,26 @@
+/**
+ * Defines the structure of a directive in the Elastic docs system
+ */
 export interface DirectiveDefinition {
+    /** The name of the directive as used in the syntax {name} */
     name: string;
+    
+    /** Whether this directive accepts arguments immediately after the name */
     hasArgument: boolean;
+    
+    /** List of parameter names that can be specified with this directive */
     parameters: string[];
+    
+    /** Template text to insert when the directive is selected */
     template: string;
+    
+    /** Human-readable description of the directive's purpose */
     description: string;
 }
 
+/**
+ * Complete list of supported directives in the Elastic docs system
+ */
 export const DIRECTIVES: readonly DirectiveDefinition[] = [
     {
         name: 'note',
@@ -107,6 +122,10 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
     },
 ];
 
+/**
+ * Suggested values for various directive parameters
+ * These values will be shown in the completion dropdown
+ */
 export const PARAMETER_VALUES: { [key: string]: string[] } = {
     'fixed-height': ['small', 'medium', 'large'],
     'group': ['languages', 'platforms', 'examples'],
