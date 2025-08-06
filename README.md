@@ -27,6 +27,7 @@ A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown aut
 
 ## To do
 
+- Add subs suggestions and tooltips based on local docset.yml file
 - Add frontmatter validation and autocomplete
 - Add support for applies_to directives, both inline and for sections
 - Use external JSON data to update extension dynamically
