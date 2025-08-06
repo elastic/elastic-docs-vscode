@@ -18,7 +18,9 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
     ): vscode.ProviderResult<vscode.Hover> {
         try {
             const lineText = document.lineAt(position).text;
-            const wordRange = document.getWordRangeAtPosition(position);
+            
+            // Custom word range detection for substitution variables
+            const wordRange = this.getSubstitutionVariableRange(document, position);
             
             if (!wordRange) {
                 return null;
@@ -56,6 +58,49 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             console.error('Error in substitution hover:', error);
             return null;
         }
+    }
+
+    private getSubstitutionVariableRange(document: vscode.TextDocument, position: vscode.Position): vscode.Range | null {
+        const lineText = document.lineAt(position).text;
+        const char = position.character;
+        
+        // Check if we're inside a {{variable}} pattern
+        const beforeText = lineText.substring(0, char);
+        const afterText = lineText.substring(char);
+        
+        // Look for {{ before the cursor
+        const beforeMatch = beforeText.match(/\{\{([a-zA-Z0-9_-]*)$/);
+        if (!beforeMatch) {
+            return null;
+        }
+        
+        // Look for }} after the cursor
+        const afterMatch = afterText.match(/^([a-zA-Z0-9_-]*)\}\}/);
+        if (!afterMatch) {
+            return null;
+        }
+        
+        // Calculate the full variable name and range
+        const variableStart = char - beforeMatch[1].length;
+        const variableEnd = char + afterMatch[1].length;
+        
+        // Ensure we're within the line bounds
+        if (variableStart < 0 || variableEnd > lineText.length) {
+            return null;
+        }
+        
+        // Verify the full pattern is {{variable}}
+        const fullPattern = lineText.substring(variableStart - 2, variableEnd + 2);
+        if (!fullPattern.match(/^\{\{[a-zA-Z0-9_-]*\}\}$/)) {
+            return null;
+        }
+        
+        const variableName = beforeMatch[1] + afterMatch[1];
+        
+        return new vscode.Range(
+            new vscode.Position(position.line, variableStart),
+            new vscode.Position(position.line, variableEnd)
+        );
     }
 
     private getSubstitutionsFromWorkspace(documentUri: vscode.Uri): SubstitutionVariables {
