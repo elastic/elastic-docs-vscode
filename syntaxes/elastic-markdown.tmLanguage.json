@@ -8,6 +8,9 @@
     },
     {
       "include": "#elastic-roles"
+    },
+    {
+      "include": "#elastic-substitutions"
     }
   ],
   "repository": {
@@ -92,6 +95,25 @@
             },
             "6": {
               "name": "markup.role.punctuation.elastic"
+            }
+          }
+        }
+      ]
+    },
+    "elastic-substitutions": {
+      "patterns": [
+        {
+          "name": "markup.substitution.punctuation.elastic",
+          "match": "(\\{\\{)([a-zA-Z][a-zA-Z0-9_-]*)(\\}\\})",
+          "captures": {
+            "1": {
+              "name": "markup.substitution.punctuation.elastic"
+            },
+            "2": {
+              "name": "markup.substitution.variable.elastic"
+            },
+            "3": {
+              "name": "markup.substitution.punctuation.elastic"
             }
           }
         }

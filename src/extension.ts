@@ -3,12 +3,16 @@ import { DirectiveCompletionProvider } from './directiveCompletionProvider';
 import { ParameterCompletionProvider } from './parameterCompletionProvider';
 import { RoleCompletionProvider } from './roleCompletionProvider';
 import { DirectiveDiagnosticProvider } from './directiveDiagnosticProvider';
+import { SubstitutionCompletionProvider } from './substitutionCompletionProvider';
+import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 
 export function activate(context: vscode.ExtensionContext): void {
     const directiveProvider = new DirectiveCompletionProvider();
     const parameterProvider = new ParameterCompletionProvider();
     const roleProvider = new RoleCompletionProvider();
     const diagnosticProvider = new DirectiveDiagnosticProvider();
+    const substitutionProvider = new SubstitutionCompletionProvider();
+    const substitutionHoverProvider = new SubstitutionHoverProvider();
 
     // Register completion providers for markdown files
     context.subscriptions.push(
@@ -32,6 +36,22 @@ export function activate(context: vscode.ExtensionContext): void {
             { scheme: 'file', language: 'markdown' },
             roleProvider,
             '{', '`'
+        )
+    );
+
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(
+            { scheme: 'file', language: 'markdown' },
+            substitutionProvider,
+            '{'
+        )
+    );
+
+    // Register hover provider for substitution variables
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider(
+            { scheme: 'file', language: 'markdown' },
+            substitutionHoverProvider
         )
     );
 
@@ -63,6 +83,25 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => {
             updateDiagnostics(document);
+        })
+    );
+
+    // Listen for workspace changes to clear substitution cache
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(event => {
+            if (event.document.fileName.endsWith('docset.yml') || event.document.fileName.endsWith('_docset.yml')) {
+                substitutionProvider.clearCache();
+                substitutionHoverProvider.clearCache();
+            }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(document => {
+            if (document.fileName.endsWith('docset.yml') || document.fileName.endsWith('_docset.yml')) {
+                substitutionProvider.clearCache();
+                substitutionHoverProvider.clearCache();
+            }
         })
     );
 

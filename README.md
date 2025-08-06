@@ -7,8 +7,11 @@ A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown aut
 - **Directive autocompletion**: Autocompletes standard and inline directives.
 - **Settings autocomplete**: Type : inside a directive to see suggested options.
 - **Icon and kbd completion**: Use `{icon}` and `{kbd}` with autocompletion
+- **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files
+- **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values
+- **Enhanced completion tooltips**: See full variable values when selecting from autocompletion
 - **Validates directive syntax**: Real-time validation with red underlines and hover cards for errors
-- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, and roles that works alongside standard Markdown highlighting
+- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, and substitution variables that works alongside standard Markdown highlighting
 
 ## Supported directives
 
@@ -25,9 +28,12 @@ A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown aut
 - `{diagram}` - Various diagram types (mermaid, d2, etc.)
 - `{include}` - Include content from other files
 
+## Substitution Variables
+
+The extension supports autocompletion for substitution variables defined in `docset.yml` files. These variables can be used throughout your markdown files with the `{{variable}}` syntax.
+
 ## To do
 
-- Add subs suggestions and tooltips based on local docset.yml file
 - Add frontmatter validation and autocomplete
 - Add support for applies_to directives, both inline and for sections
 - Use external JSON data to update extension dynamically
@@ -94,6 +100,8 @@ src/
 ├── directiveCompletionProvider.ts  # Handles ::: completion
 ├── parameterCompletionProvider.ts  # Handles parameter completion
 ├── roleCompletionProvider.ts       # Handles {icon} and {kbd} completion
+├── substitutionCompletionProvider.ts # Handles {{ substitution completion
+├── substitutionHoverProvider.ts    # Handles hover tooltips for substitutions
 ├── directiveDiagnosticProvider.ts  # Handles malformed directive detection
 └── directives.ts                   # Directive definitions and templates
 
