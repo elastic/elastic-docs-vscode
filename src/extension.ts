@@ -7,6 +7,21 @@ import { SubstitutionCompletionProvider } from './substitutionCompletionProvider
 import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 
 export function activate(context: vscode.ExtensionContext): void {
+    // Debug logging
+    console.log('Elastic Docs V3 Utilities: Extension activated');
+    
+    // Apply color customizations programmatically
+    applyColorCustomizations();
+    
+    // Test grammar loading
+    testGrammarLoading();
+    
+    // Ensure we're working with markdown files and handle potential conflicts
+    const markdownLanguageId = 'markdown';
+    
+    // Note: getLanguages() is async, but we'll proceed without this check
+    // as the extension should work fine even if markdown support is loaded later
+
     const directiveProvider = new DirectiveCompletionProvider();
     const parameterProvider = new ParameterCompletionProvider();
     const roleProvider = new RoleCompletionProvider();
@@ -17,7 +32,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register completion providers for markdown files
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown' },
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             directiveProvider,
             ':', '{'
         )
@@ -25,7 +40,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown' },
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             parameterProvider,
             ':'
         )
@@ -33,7 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown' },
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             roleProvider,
             '{', '`'
         )
@@ -41,7 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown' },
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             substitutionProvider,
             '{'
         )
@@ -50,7 +65,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register hover provider for substitution variables
     context.subscriptions.push(
         vscode.languages.registerHoverProvider(
-            { scheme: 'file', language: 'markdown' },
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             substitutionHoverProvider
         )
     );
@@ -125,6 +140,116 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         })
     );
+
+    // Debug: Check grammar loading
+    setTimeout(() => {
+        console.log('Elastic Docs V3: Checking grammar loading...');
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor && activeEditor.document.languageId === 'markdown') {
+            console.log('Elastic Docs V3: Active document is markdown');
+            console.log('Elastic Docs V3: Document URI:', activeEditor.document.uri.toString());
+        }
+    }, 2000);
+}
+
+function applyColorCustomizations(): void {
+    const config = vscode.workspace.getConfiguration('editor');
+    const currentCustomizations = config.get('tokenColorCustomizations') as any || {};
+    
+    // Define our custom color rules
+    const elasticRules = [
+        {
+            "scope": "markup.directive.punctuation.elastic",
+            "settings": {
+                "foreground": "#569cd6",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.directive.punctuation.brace.elastic",
+            "settings": {
+                "foreground": "#569cd6",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.directive.name.elastic",
+            "settings": {
+                "foreground": "#4ec9b0",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.directive.argument.elastic",
+            "settings": {
+                "foreground": "#ce9178",
+                "fontStyle": "italic"
+            }
+        },
+        {
+            "scope": "markup.role.name.elastic",
+            "settings": {
+                "foreground": "#c586c0",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.role.punctuation.elastic",
+            "settings": {
+                "foreground": "#c586c0"
+            }
+        },
+        {
+            "scope": "markup.role.content.elastic",
+            "settings": {
+                "foreground": "#d7ba7d"
+            }
+        },
+        {
+            "scope": "markup.substitution.punctuation.elastic",
+            "settings": {
+                "foreground": "#569cd6",
+                "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.substitution.variable.elastic",
+            "settings": {
+                "foreground": "#4ec9b0",
+                "fontStyle": "bold"
+            }
+        }
+    ];
+    
+    // Merge with existing rules
+    const existingRules = currentCustomizations.textMateRules || [];
+    const newRules = [...existingRules, ...elasticRules];
+    
+    // Apply the customizations
+    config.update('tokenColorCustomizations', {
+        ...currentCustomizations,
+        textMateRules: newRules
+    }, vscode.ConfigurationTarget.Global);
+}
+
+function testGrammarLoading(): void {
+    // Test if our grammar is loaded
+    setTimeout(() => {
+        const activeEditor = vscode.window.activeTextEditor;
+        if (activeEditor && activeEditor.document.languageId === 'markdown') {
+            console.log('Elastic Docs V3: Testing grammar on active markdown file');
+            
+            // Check if our scopes are being applied
+            const document = activeEditor.document;
+            const position = new vscode.Position(0, 0);
+            const token = document.getWordRangeAtPosition(position);
+            
+            if (token) {
+                const tokens = document.getText(token);
+                console.log(`Elastic Docs V3: Found tokens at start: ${tokens}`);
+            }
+        }
+    }, 2000);
 }
 
 export function deactivate(): void {}

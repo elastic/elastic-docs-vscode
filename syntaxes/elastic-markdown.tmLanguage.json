@@ -1,7 +1,12 @@
 {
   "name": "Elastic Markdown Directives Injection",
   "scopeName": "elastic-directives.injection",
-  "injectionSelector": "L:text.html.markdown",
+  "injectionSelector": "L:text.html.markdown, L:markdown",
+  "injectTo": [
+    "text.html.markdown",
+    "markdown"
+  ],
+  "priority": 1,
   "patterns": [
     {
       "include": "#elastic-directive-lines"

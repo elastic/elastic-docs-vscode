@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs V3 Utilities",
   "description": "VSCode extension for Elastic Docs V3 Markdown authoring with directive autocompletion",
-  "version": "0.3.4",
+  "version": "0.3.8",
   "publisher": "elastic",
   "repository": {
     "type": "git",
@@ -16,7 +16,8 @@
   ],
   "icon": "images/icon.png",
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -33,8 +34,13 @@
         "path": "./syntaxes/elastic-markdown.tmLanguage.json",
         "scopeName": "elastic-directives.injection",
         "injectTo": [
-          "text.html.markdown"
-        ]
+          "text.html.markdown",
+          "markdown"
+        ],
+        "embeddedLanguages": {
+          "text.html.markdown": "markdown"
+        },
+        "priority": 1
       }
     ],
     "commands": [
@@ -42,93 +48,7 @@
         "command": "elastic-docs-v3.replaceEntireLine",
         "title": "Replace entire line"
       }
-    ],
-    "configurationDefaults": {
-      "editor.tokenColorCustomizations": {
-        "textMateRules": [
-          {
-            "scope": "markup.directive.punctuation.elastic",
-            "settings": {
-              "foreground": "#569cd6",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.directive.punctuation.brace.elastic",
-            "settings": {
-              "foreground": "#569cd6",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.directive.name.elastic",
-            "settings": {
-              "foreground": "#4ec9b0",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.directive.argument.elastic",
-            "settings": {
-              "foreground": "#ce9178",
-              "fontStyle": "italic"
-            }
-          },
-          {
-            "scope": "markup.directive.parameter.name.elastic",
-            "settings": {
-              "foreground": "#9cdcfe",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.directive.parameter.punctuation.elastic",
-            "settings": {
-              "foreground": "#9cdcfe"
-            }
-          },
-          {
-            "scope": "markup.directive.parameter.value.elastic",
-            "settings": {
-              "foreground": "#ce9178"
-            }
-          },
-          {
-            "scope": "markup.role.name.elastic",
-            "settings": {
-              "foreground": "#c586c0",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.role.punctuation.elastic",
-            "settings": {
-              "foreground": "#c586c0"
-            }
-          },
-          {
-            "scope": "markup.role.content.elastic",
-            "settings": {
-              "foreground": "#d7ba7d"
-            }
-          },
-          {
-            "scope": "markup.substitution.punctuation.elastic",
-            "settings": {
-              "foreground": "#569cd6",
-              "fontStyle": "bold"
-            }
-          },
-          {
-            "scope": "markup.substitution.variable.elastic",
-            "settings": {
-              "foreground": "#4ec9b0",
-              "fontStyle": "bold"
-            }
-          }
-        ]
-      }
-    }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
