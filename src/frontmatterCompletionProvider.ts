@@ -113,22 +113,37 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         const trimmedBefore = textBefore.trim();
         
         outputChannel.appendLine(`[FrontmatterCompletion] Schema context analysis: indent=${currentIndent}, trimmed="${trimmedBefore}"`);
+        outputChannel.appendLine(`[FrontmatterCompletion] isFieldValue check: ${this.isFieldValue(textBefore)}`);
+        outputChannel.appendLine(`[FrontmatterCompletion] isIndentedNewField check: ${this.isIndentedNewField(textBefore, currentIndent, lines, currentLineIndex)}`);
         
-        // Case 1: Typing after "field:" with proper indentation - suggest child fields
-        if (this.isIndentedNewField(textBefore, currentIndent, lines, currentLineIndex)) {
-            const parentPath = this.getParentPathFromIndentation(currentIndent, lines, currentLineIndex);
-            outputChannel.appendLine(`[FrontmatterCompletion] Indented field context, parent path: [${parentPath.join(',')}]`);
-            
-            return {
-                type: 'field_name',
-                path: parentPath,
-                yamlStructure: {}
-            };
+        // Case 1: Array item context "- " or "- field:"
+        if (trimmedBefore.startsWith('-')) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Detected array item context: "${trimmedBefore}"`);
+            // Check if this is "- field:" (array item with field value)
+            if (trimmedBefore.includes(':')) {
+                const fieldName = this.extractFieldName(textBefore);
+                outputChannel.appendLine(`[FrontmatterCompletion] Array field value context for: ${fieldName}`);
+                return {
+                    type: 'field_value',
+                    path,
+                    currentField: fieldName,
+                    yamlStructure: {}
+                };
+            } else {
+                // Regular array item like "- " 
+                outputChannel.appendLine(`[FrontmatterCompletion] Regular array item context`);
+                return {
+                    type: 'list_item',
+                    path,
+                    yamlStructure: {}
+                };
+            }
         }
         
-        // Case 2: Typing field value after ":"
+        // Case 2: Typing field value after ":" (including right after typing the colon)
         if (this.isFieldValue(textBefore)) {
             const fieldName = this.extractFieldName(textBefore);
+            outputChannel.appendLine(`[FrontmatterCompletion] Field value context for: ${fieldName}`);
             return {
                 type: 'field_value',
                 path,
@@ -137,11 +152,14 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
             };
         }
         
-        // Case 3: Array item context "- "
-        if (trimmedBefore.startsWith('-') || textBefore.match(/^\s*-\s*[a-zA-Z_]*$/)) {
+        // Case 3: Typing after "field:" with proper indentation - suggest child fields
+        if (this.isIndentedNewField(textBefore, currentIndent, lines, currentLineIndex)) {
+            const parentPath = this.getParentPathFromIndentation(currentIndent, lines, currentLineIndex);
+            outputChannel.appendLine(`[FrontmatterCompletion] Indented field context, parent path: [${parentPath.join(',')}]`);
+            
             return {
-                type: 'list_item',
-                path,
+                type: 'field_name',
+                path: parentPath,
                 yamlStructure: {}
             };
         }
@@ -210,6 +228,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
 
     private isFieldValue(textBefore: string): boolean {
         // Field value if we're after ':' and optional whitespace
+        // This includes immediately after typing the colon: "ecctl:"
         return /:\s*([^"'\n]*)?$/.test(textBefore);
     }
 
@@ -230,8 +249,19 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     }
 
     private extractFieldName(textBefore: string): string {
+        // Handle both "fieldname: value" and "fieldname:" (right after colon)
         const match = textBefore.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*[^:\n]*$/);
-        return match ? match[1] : '';
+        if (match) {
+            return match[1];
+        }
+        
+        // Also handle array items like "- fieldname:" 
+        const arrayMatch = textBefore.match(/^\s*-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*[^:\n]*$/);
+        if (arrayMatch) {
+            return arrayMatch[1];
+        }
+        
+        return '';
     }
 
     private getCurrentPath(lines: string[], currentLine: number, _currentChar: number): string[] {
@@ -259,6 +289,23 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
                     if (fieldMatch) {
                         path.unshift(fieldMatch[1]);
                         currentIndent = indent;
+                        
+                        // Continue looking for more parents at higher levels
+                        let searchIndent = indent;
+                        for (let j = i - 1; j >= 0; j--) {
+                            const parentLine = lines[j];
+                            if (!parentLine || parentLine.trim() === '') continue;
+                            
+                            const parentIndent = parentLine.length - parentLine.trimStart().length;
+                            
+                            if (parentIndent < searchIndent) {
+                                const parentFieldMatch = parentLine.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+                                if (parentFieldMatch) {
+                                    path.unshift(parentFieldMatch[1]);
+                                    searchIndent = parentIndent;
+                                }
+                            }
+                        }
                         break;
                     }
                 }
@@ -512,16 +559,21 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     }
 
     private getObjectValueCompletions(fieldName: string, path: string[]): vscode.CompletionItem[] {
+        outputChannel.appendLine(`[FrontmatterCompletion] getObjectValueCompletions called for field: ${fieldName}, path: [${path.join(',')}]`);
+        
         // Handle product ID completions
         if (fieldName === 'id' && path.includes('products')) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Field is 'id' in products path, calling getProductIdCompletions`);
             return this.getProductIdCompletions();
         }
 
         // Handle applies_to value completions
         if (this.isAppliesField(fieldName, path)) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Field is applies_to related, calling getAppliesValueCompletions`);
             return this.getAppliesValueCompletions();
         }
 
+        outputChannel.appendLine(`[FrontmatterCompletion] No specific handling for field: ${fieldName}`);
         return [];
     }
 
@@ -578,12 +630,17 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private getProductIdCompletions(): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
         
+        outputChannel.appendLine(`[FrontmatterCompletion] Getting product ID completions`);
+        
         // Get product IDs from schema
         const productsSchema = this.schema.properties.products;
         let productIds: string[] = [];
         
         if (productsSchema && productsSchema.items && productsSchema.items.properties && productsSchema.items.properties.id && productsSchema.items.properties.id.enum) {
             productIds = productsSchema.items.properties.id.enum;
+            outputChannel.appendLine(`[FrontmatterCompletion] Found ${productIds.length} product IDs in schema: ${productIds.join(', ')}`);
+        } else {
+            outputChannel.appendLine(`[FrontmatterCompletion] No product IDs found in schema. Schema structure: ${JSON.stringify(productsSchema)}`);
         }
 
         for (const productId of productIds) {
@@ -591,8 +648,10 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
             item.insertText = `"${productId}"`;
             item.detail = 'Product identifier';
             items.push(item);
+            outputChannel.appendLine(`[FrontmatterCompletion] Added product ID completion: ${productId}`);
         }
 
+        outputChannel.appendLine(`[FrontmatterCompletion] Returning ${items.length} product ID completions`);
         return items;
     }
 

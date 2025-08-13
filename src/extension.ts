@@ -79,12 +79,12 @@ export function activate(context: vscode.ExtensionContext): void {
     outputChannel.appendLine('Substitution hover provider registered');
 
     // Register frontmatter completion provider
-    // Use minimal trigger characters and rely on manual invocation (Ctrl+Space)
+    // Trigger on colon for values, space after colon, and other key characters
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
             { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             frontmatterProvider,
-            ':', ' ', '-', '_' // Keep minimal triggers for specific contexts
+            ':', ' ', '-' // Colon triggers value completion, space triggers after colon, dash for arrays
         )
     );
     outputChannel.appendLine('Frontmatter completion provider registered');
