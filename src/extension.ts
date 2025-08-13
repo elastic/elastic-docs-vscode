@@ -79,11 +79,18 @@ export function activate(context: vscode.ExtensionContext): void {
     outputChannel.appendLine('Substitution hover provider registered');
 
     // Register frontmatter completion provider
+    // Add alphabet as trigger characters so typing field names triggers completion immediately
+    const triggerChars = [':', ' ', '-', '_'].concat(
+        Array.from({length: 26}, (_, i) => String.fromCharCode(97 + i)) // a-z
+    );
+    
+    outputChannel.appendLine(`Frontmatter completion provider registering with trigger chars: ${triggerChars.join(', ')}`);
+    
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
             { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
             frontmatterProvider,
-            ':', ' ', '-'
+            ...triggerChars
         )
     );
     outputChannel.appendLine('Frontmatter completion provider registered');

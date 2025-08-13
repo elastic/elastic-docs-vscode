@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { outputChannel } from './logger';
 import { frontmatterSchema } from './frontmatterSchema';
 
 interface FrontmatterSchema {
@@ -37,21 +38,30 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
+        outputChannel.appendLine(`[FrontmatterCompletion] Called at ${document.fileName}:${position.line}:${position.character}`);
 
         // Check if we're in frontmatter
         const frontmatterRange = this.getFrontmatterRange(document);
         if (!frontmatterRange || !frontmatterRange.contains(position)) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Not in frontmatter. Range: ${frontmatterRange ? `${frontmatterRange.start.line}-${frontmatterRange.end.line}` : 'null'}, Position: ${position.line}`);
             return [];
         }
+
+        outputChannel.appendLine(`[FrontmatterCompletion] In frontmatter range ${frontmatterRange.start.line}-${frontmatterRange.end.line}`);
 
         // Analyze the current context
         const context = this.analyzeContext(document, position, frontmatterRange);
         if (!context) {
+            outputChannel.appendLine(`[FrontmatterCompletion] No context detected`);
             return [];
         }
 
+        outputChannel.appendLine(`[FrontmatterCompletion] Context: type=${context.type}, path=[${context.path.join(',')}], currentField=${context.currentField || 'none'}`);
+
         // Provide completions based on context
-        return this.getCompletionsForContext(context);
+        const completions = this.getCompletionsForContext(context);
+        outputChannel.appendLine(`[FrontmatterCompletion] Returning ${Array.isArray(completions) ? completions.length : 0} completions`);
+        return completions;
     }
 
     private getFrontmatterRange(document: vscode.TextDocument): vscode.Range | null {
@@ -80,9 +90,15 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         const textBefore = currentLine.substring(0, position.character);
         const textAfter = currentLine.substring(position.character);
         
+        outputChannel.appendLine(`[FrontmatterCompletion] Line text: "${currentLine}"`);
+        outputChannel.appendLine(`[FrontmatterCompletion] Text before: "${textBefore}"`);
+        outputChannel.appendLine(`[FrontmatterCompletion] Text after: "${textAfter}"`);
+        
         // Parse YAML structure up to current position
         const yamlStructure = this.parsePartialYaml(lines, position.line - 1);
         const path = this.getCurrentPath(lines, position.line - 1, position.character);
+        
+        outputChannel.appendLine(`[FrontmatterCompletion] Detected path: [${path.join(',')}]`);
 
         // Determine completion type
         if (this.isFieldName(textBefore, textAfter)) {
@@ -126,8 +142,8 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
 
     private isFieldName(textBefore: string, textAfter: string): boolean {
         // Field name if we're at start of line or after proper indentation and not after ':'
-        // Also includes empty lines where we should suggest field names
-        return (/^(\s*)([a-zA-Z_][a-zA-Z0-9_]*)?$/.test(textBefore) || /^\s*$/.test(textBefore)) && !textAfter.includes(':');
+        // This includes empty lines, indented lines, and partial field names
+        return /^(\s*)([a-zA-Z_][a-zA-Z0-9_]*)?$/.test(textBefore) && !textAfter.includes(':');
     }
 
     private isFieldValue(textBefore: string): boolean {
@@ -159,22 +175,49 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private getCurrentPath(lines: string[], currentLine: number, _currentChar: number): string[] {
         const path: string[] = [];
         let currentIndent = 0;
+        const currentLineText = lines[currentLine];
 
-        // Walk backwards through lines to build context path
-        for (let i = currentLine; i >= 0; i--) {
-            const line = lines[i];
-            if (!line || line.trim() === '') continue;
-
-            const indent = line.length - line.trimStart().length;
+        // Check if current line is an array item (starts with -)
+        const isArrayItem = currentLineText && /^\s*-\s/.test(currentLineText);
+        
+        // If we're in an array item, we need to find the parent array field
+        if (isArrayItem) {
+            const arrayIndent = currentLineText.length - currentLineText.trimStart().length;
             
-            if (i === currentLine) {
-                currentIndent = indent;
-            } else if (indent < currentIndent) {
-                // Found parent level
-                const fieldMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
-                if (fieldMatch) {
-                    path.unshift(fieldMatch[1]);
+            // Look backwards for the parent field that owns this array
+            for (let i = currentLine - 1; i >= 0; i--) {
+                const line = lines[i];
+                if (!line || line.trim() === '') continue;
+                
+                const indent = line.length - line.trimStart().length;
+                
+                // Found a field at a lesser indentation level - this is our parent
+                if (indent < arrayIndent) {
+                    const fieldMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+                    if (fieldMatch) {
+                        path.unshift(fieldMatch[1]);
+                        currentIndent = indent;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // Regular path detection for non-array items
+            for (let i = currentLine; i >= 0; i--) {
+                const line = lines[i];
+                if (!line || line.trim() === '') continue;
+
+                const indent = line.length - line.trimStart().length;
+                
+                if (i === currentLine) {
                     currentIndent = indent;
+                } else if (indent < currentIndent) {
+                    // Found parent level
+                    const fieldMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+                    if (fieldMatch) {
+                        path.unshift(fieldMatch[1]);
+                        currentIndent = indent;
+                    }
                 }
             }
         }
@@ -391,15 +434,13 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private getProductIdCompletions(): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
         
-        const productIds = [
-            "apm", "apm-agent", "auditbeat", "beats", "cloud-control-ecctl", "cloud-enterprise", 
-            "cloud-hosted", "cloud-kubernetes", "cloud-serverless", "cloud-terraform", "ecs", 
-            "ecs-logging", "edot-cf", "edot-sdk", "edot-collector", "elastic-agent", 
-            "elastic-serverless-forwarder", "elastic-stack", "elasticsearch", "elasticsearch-client", 
-            "filebeat", "fleet", "heartbeat", "integrations", "kibana", "logstash", 
-            "machine-learning", "metricbeat", "observability", "packetbeat", "painless", 
-            "search-ui", "security", "winlogbeat"
-        ];
+        // Get product IDs from schema
+        const productsSchema = this.schema.properties.products;
+        let productIds: string[] = [];
+        
+        if (productsSchema && productsSchema.items && productsSchema.items.properties && productsSchema.items.properties.id && productsSchema.items.properties.id.enum) {
+            productIds = productsSchema.items.properties.id.enum;
+        }
 
         for (const productId of productIds) {
             const item = new vscode.CompletionItem(productId, vscode.CompletionItemKind.Value);
