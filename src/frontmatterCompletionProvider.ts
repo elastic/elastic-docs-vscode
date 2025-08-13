@@ -99,6 +99,8 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         const path = this.getCurrentPath(lines, position.line - 1, position.character);
         
         outputChannel.appendLine(`[FrontmatterCompletion] Detected path: [${path.join(',')}]`);
+        outputChannel.appendLine(`[FrontmatterCompletion] Current line index: ${position.line - frontmatterRange.start.line - 1}`);
+        outputChannel.appendLine(`[FrontmatterCompletion] Lines array: ${JSON.stringify(lines)}`);
 
         // Determine context based on indentation and schema
         const context = this.determineSchemaContext(textBefore, textAfter, path, position.line - frontmatterRange.start.line - 1, lines);
@@ -229,7 +231,9 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private isFieldValue(textBefore: string): boolean {
         // Field value if we're after ':' and optional whitespace
         // This includes immediately after typing the colon: "ecctl:"
-        return /:\s*([^"'\n]*)?$/.test(textBefore);
+        const result = /:\s*([^"'\n]*)?$/.test(textBefore);
+        outputChannel.appendLine(`[FrontmatterCompletion] isFieldValue("${textBefore}") = ${result}`);
+        return result;
     }
 
     private isListItem(textBefore: string): boolean {
@@ -252,15 +256,18 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         // Handle both "fieldname: value" and "fieldname:" (right after colon)
         const match = textBefore.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*[^:\n]*$/);
         if (match) {
+            outputChannel.appendLine(`[FrontmatterCompletion] extractFieldName: Regular match for "${textBefore}" -> "${match[1]}"`);
             return match[1];
         }
         
         // Also handle array items like "- fieldname:" 
         const arrayMatch = textBefore.match(/^\s*-\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*[^:\n]*$/);
         if (arrayMatch) {
+            outputChannel.appendLine(`[FrontmatterCompletion] extractFieldName: Array match for "${textBefore}" -> "${arrayMatch[1]}"`);
             return arrayMatch[1];
         }
         
+        outputChannel.appendLine(`[FrontmatterCompletion] extractFieldName: No match for "${textBefore}"`);
         return '';
     }
 
@@ -269,12 +276,16 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         let currentIndent = 0;
         const currentLineText = lines[currentLine];
 
+        outputChannel.appendLine(`[FrontmatterCompletion] getCurrentPath called for line ${currentLine}: "${currentLineText}"`);
+
         // Check if current line is an array item (starts with -)
         const isArrayItem = currentLineText && /^\s*-\s/.test(currentLineText);
+        outputChannel.appendLine(`[FrontmatterCompletion] Is array item: ${isArrayItem}`);
         
         // If we're in an array item, we need to find the parent array field
         if (isArrayItem) {
             const arrayIndent = currentLineText.length - currentLineText.trimStart().length;
+            outputChannel.appendLine(`[FrontmatterCompletion] Array indent: ${arrayIndent}`);
             
             // Look backwards for the parent field that owns this array
             for (let i = currentLine - 1; i >= 0; i--) {
@@ -282,12 +293,15 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
                 if (!line || line.trim() === '') continue;
                 
                 const indent = line.length - line.trimStart().length;
+                outputChannel.appendLine(`[FrontmatterCompletion] Checking line ${i}: "${line}" (indent: ${indent})`);
                 
                 // Found a field at a lesser indentation level - this is our parent
                 if (indent < arrayIndent) {
                     const fieldMatch = line.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
                     if (fieldMatch) {
-                        path.unshift(fieldMatch[1]);
+                        const fieldName = fieldMatch[1];
+                        outputChannel.appendLine(`[FrontmatterCompletion] Found parent field: ${fieldName} at indent ${indent}`);
+                        path.unshift(fieldName);
                         currentIndent = indent;
                         
                         // Continue looking for more parents at higher levels
@@ -301,7 +315,9 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
                             if (parentIndent < searchIndent) {
                                 const parentFieldMatch = parentLine.match(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
                                 if (parentFieldMatch) {
-                                    path.unshift(parentFieldMatch[1]);
+                                    const parentFieldName = parentFieldMatch[1];
+                                    outputChannel.appendLine(`[FrontmatterCompletion] Found higher parent field: ${parentFieldName} at indent ${parentIndent}`);
+                                    path.unshift(parentFieldName);
                                     searchIndent = parentIndent;
                                 }
                             }
@@ -331,6 +347,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
             }
         }
 
+        outputChannel.appendLine(`[FrontmatterCompletion] Final path: [${path.join(',')}]`);
         return path;
     }
 
@@ -345,10 +362,17 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private getCompletionsForContext(context: FrontmatterContext): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
 
+        outputChannel.appendLine(`[FrontmatterCompletion] getCompletionsForContext called with type: ${context.type}, field: ${context.currentField}, path: [${context.path.join(',')}]`);
+
         switch (context.type) {
             case 'field_name':
                 return this.getFieldNameCompletions(context.path);
             case 'field_value':
+                // Special handling for product ID fields in products array
+                if (context.currentField === 'id' && context.path.includes('products')) {
+                    outputChannel.appendLine(`[FrontmatterCompletion] Special handling for product ID field in products array`);
+                    return this.getObjectValueCompletions(context.currentField, context.path);
+                }
                 return this.getFieldValueCompletions(context.currentField!, context.path);
             case 'list_item':
                 return this.getListItemCompletions(context.path);
