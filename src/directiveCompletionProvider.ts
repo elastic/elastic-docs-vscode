@@ -132,35 +132,35 @@ export class DirectiveCompletionProvider implements vscode.CompletionItemProvide
         switch (directiveName) {
             // Admonitions (info/warning icons)
             case 'note':
-                return vscode.CompletionItemKind.Reference;
+                return vscode.CompletionItemKind.Snippet;
             case 'warning':
-                return vscode.CompletionItemKind.Issue;
+                return vscode.CompletionItemKind.Snippet;
             case 'tip':
                 return vscode.CompletionItemKind.Snippet;
             case 'important':
-                return vscode.CompletionItemKind.Issue;
+                return vscode.CompletionItemKind.Snippet;
             case 'admonition':
-                return vscode.CompletionItemKind.Reference;
+                return vscode.CompletionItemKind.Snippet;
             
             // Content organization (folder/document icons)
             case 'dropdown':
-                return vscode.CompletionItemKind.Folder;
+                return vscode.CompletionItemKind.Snippet;
             case 'tab-set':
-                return vscode.CompletionItemKind.Class;
+                return vscode.CompletionItemKind.Snippet;
             case 'stepper':
-                return vscode.CompletionItemKind.Enum;
+                return vscode.CompletionItemKind.Snippet;
             
             // Media and visuals (image/video icons)
             case 'image':
-                return vscode.CompletionItemKind.File;
+                return vscode.CompletionItemKind.Snippet;
             case 'carousel':
-                return vscode.CompletionItemKind.Enum;
+                return vscode.CompletionItemKind.Snippet;
             case 'diagram':
-                return vscode.CompletionItemKind.Struct;
+                return vscode.CompletionItemKind.Snippet;
             
             // Content inclusion (link icons)
             case 'include':
-                return vscode.CompletionItemKind.Module;
+                return vscode.CompletionItemKind.Snippet;
             
             // Default
             default:
