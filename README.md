@@ -5,6 +5,8 @@ A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown aut
 ## Features
 
 - **Directive autocompletion**: Autocompletes standard and inline directives.
+- **Frontmatter autocompletion**: Autocompletes frontmatter fields.
+- **Frontmatter validation**: Validates frontmatter fields.
 - **Settings autocomplete**: Type : inside a directive to see suggested options.
 - **Icon and kbd completion**: Use `{icon}` and `{kbd}` with autocompletion
 - **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files
@@ -34,8 +36,7 @@ The extension supports autocompletion for substitution variables defined in `doc
 
 ## To do
 
-- Add frontmatter validation and autocomplete
-- Add support for applies_to directives, both inline and for sections
+- Add support for inline applies_to directives
 - Use external JSON data to update extension dynamically
 
 ## Installation
