@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { DIRECTIVES } from './directives';
+import { outputChannel } from './extension';
 
 interface DirectiveBlock {
     opening: string;
@@ -44,7 +45,7 @@ export class DirectiveDiagnosticProvider {
         const blocks: DirectiveBlock[] = [];
         const blockStack: DirectiveBlock[] = [];
         
-        console.log('[Elastic Docs] Starting to parse directive blocks for:', document.uri.toString());
+        outputChannel.appendLine(`[Elastic Docs] Starting to parse directive blocks for: ${document.uri.toString()}`);
         
         for (let lineNum = 0; lineNum < document.lineCount; lineNum++) {
             const line = document.lineAt(lineNum);
@@ -53,12 +54,7 @@ export class DirectiveDiagnosticProvider {
             // Check for properly formatted opening directive
             const openingMatch = lineText.match(/^(:{3,})\{([a-zA-Z][a-zA-Z0-9_-]*)\}(?:\s+(.*))?$/);
             if (openingMatch) {
-                console.log(`[Elastic Docs] Line ${lineNum}: Found opening directive:`, {
-                    line: lineText,
-                    colonCount: openingMatch[1].length,
-                    name: openingMatch[2],
-                    argument: openingMatch[3]
-                });
+                outputChannel.appendLine(`[Elastic Docs] Line ${lineNum}: Found opening directive: ${openingMatch[2]} (${openingMatch[1].length} colons) - ${lineText}`);
                 const newBlock = {
                     opening: lineText,
                     openingRange: new vscode.Range(lineNum, 0, lineNum, lineText.length),
@@ -72,7 +68,7 @@ export class DirectiveDiagnosticProvider {
                 };
                 blocks.push(newBlock);
                 blockStack.push(newBlock);
-                console.log(`[Elastic Docs] Stack after adding '${newBlock.name}':`, blockStack.map(b => `${b.name}(${b.openingColons})`));
+                outputChannel.appendLine(`[Elastic Docs] Stack after adding '${newBlock.name}': ${blockStack.map(b => `${b.name}(${b.openingColons})`).join(', ')}`);
                 continue;
             }
             
@@ -121,17 +117,17 @@ export class DirectiveDiagnosticProvider {
             const closingMatch = lineText.match(/^(:+)\s*$/);
             if (closingMatch && blockStack.length > 0) {
                 const colonCount = closingMatch[1].length;
-                console.log(`[Elastic Docs] Line ${lineNum}: Found closing with ${colonCount} colons`);
-                console.log(`[Elastic Docs] Current stack:`, blockStack.map(b => `${b.name}(${b.openingColons})`));
+                outputChannel.appendLine(`[Elastic Docs] Line ${lineNum}: Found closing with ${colonCount} colons`);
+                outputChannel.appendLine(`[Elastic Docs] Current stack: ${blockStack.map(b => `${b.name}(${b.openingColons})`).join(', ')}`);
                 
                 // Find the most recent unmatched block with matching colon count
                 // We search backwards through the stack to handle nested directives
                 let matched = false;
                 for (let i = blockStack.length - 1; i >= 0; i--) {
                     const block = blockStack[i];
-                    console.log(`[Elastic Docs] Checking block '${block.name}' with ${block.openingColons} colons, already closed: ${!!block.closing}`);
+                    outputChannel.appendLine(`[Elastic Docs] Checking block '${block.name}' with ${block.openingColons} colons, already closed: ${!!block.closing}`);
                     if (block.openingColons === colonCount && !block.closing) {
-                        console.log(`[Elastic Docs] MATCHED! Closing '${block.name}' with ${colonCount} colons`);
+                        outputChannel.appendLine(`[Elastic Docs] MATCHED! Closing '${block.name}' with ${colonCount} colons`);
                         block.closing = lineText;
                         block.closingRange = new vscode.Range(lineNum, 0, lineNum, lineText.length);
                         block.closingColons = colonCount;
@@ -142,9 +138,9 @@ export class DirectiveDiagnosticProvider {
                     }
                 }
                 if (!matched) {
-                    console.log(`[Elastic Docs] WARNING: No matching opening found for ${colonCount} colons at line ${lineNum}`);
+                    outputChannel.appendLine(`[Elastic Docs] WARNING: No matching opening found for ${colonCount} colons at line ${lineNum}`);
                 }
-                console.log(`[Elastic Docs] Stack after closing:`, blockStack.map(b => `${b.name}(${b.openingColons})`));
+                outputChannel.appendLine(`[Elastic Docs] Stack after closing: ${blockStack.map(b => `${b.name}(${b.openingColons})`).join(', ')}`);
                 continue;
             }
             
@@ -167,12 +163,12 @@ export class DirectiveDiagnosticProvider {
         
         // Log any unclosed blocks
         if (blockStack.length > 0) {
-            console.log('[Elastic Docs] WARNING: Unclosed blocks remaining:', blockStack.map(b => `${b.name}(${b.openingColons}) at line ${b.openingRange.start.line}`));
+            outputChannel.appendLine(`[Elastic Docs] WARNING: Unclosed blocks remaining: ${blockStack.map(b => `${b.name}(${b.openingColons}) at line ${b.openingRange.start.line}`).join(', ')}`);
         }
         
-        console.log(`[Elastic Docs] Parsing complete. Found ${blocks.length} total blocks`);
+        outputChannel.appendLine(`[Elastic Docs] Parsing complete. Found ${blocks.length} total blocks`);
         blocks.forEach((block, i) => {
-            console.log(`[Elastic Docs] Block ${i}: ${block.name}(${block.openingColons}) - Closed: ${!!block.closing}`);
+            outputChannel.appendLine(`[Elastic Docs] Block ${i}: ${block.name}(${block.openingColons}) - Closed: ${!!block.closing}`);
         });
         
         return blocks;
@@ -181,11 +177,11 @@ export class DirectiveDiagnosticProvider {
     private validateDirectiveBlock(block: DirectiveBlock, _document: vscode.TextDocument): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
         
-        console.log(`[Elastic Docs] Validating block '${block.name}' (${block.openingColons} colons) - Has closing: ${!!block.closing}`);
+        outputChannel.appendLine(`[Elastic Docs] Validating block '${block.name}' (${block.openingColons} colons) - Has closing: ${!!block.closing}`);
         
         // 1. Check for missing closing directive
         if (!block.closing) {
-            console.log(`[Elastic Docs] ERROR: Missing closing directive for '${block.name}' at line ${block.openingRange.start.line}`);
+            outputChannel.appendLine(`[Elastic Docs] ERROR: Missing closing directive for '${block.name}' at line ${block.openingRange.start.line}`);
             diagnostics.push(new vscode.Diagnostic(
                 block.openingRange,
                 `Missing closing directive. Expected ${':'.repeat(block.openingColons)}`,

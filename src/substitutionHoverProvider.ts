@@ -1,9 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { outputChannel } from './extension';
 
 interface SubstitutionVariables {
     [key: string]: string;
+}
+
+interface ParsedYaml {
+    [key: string]: unknown;
 }
 
 export class SubstitutionHoverProvider implements vscode.HoverProvider {
@@ -55,7 +60,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             
             return null;
         } catch (error) {
-            console.error('Error in substitution hover:', error);
+            outputChannel.appendLine(`Error in substitution hover: ${error}`);
             return null;
         }
     }
@@ -95,7 +100,6 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             return null;
         }
         
-        const variableName = beforeMatch[1] + afterMatch[1];
         
         return new vscode.Range(
             new vscode.Position(position.line, variableStart),
@@ -130,7 +134,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             this.lastCacheUpdate = now;
             
         } catch (error) {
-            console.error('Error reading docset files:', error);
+            outputChannel.appendLine(`Error reading docset files: ${error}`);
         }
         
         return substitutions;
@@ -204,21 +208,21 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
                     this.flattenObject(subs, '', flattened);
                     return flattened;
                 }
-                return subs as SubstitutionVariables;
+                return subs as unknown as SubstitutionVariables;
             }
             
             return {};
         } catch (error) {
-            console.error(`Error parsing docset file ${filePath}:`, error);
+            outputChannel.appendLine(`Error parsing docset file ${filePath}: ${error}`);
             return {};
         }
     }
 
-    private parseYaml(content: string): any {
+    private parseYaml(content: string): SubstitutionVariables {
         // Simple YAML parser for the specific structure we need
         const lines = content.split('\n');
-        const result: any = {};
-        let currentSection: any = null;
+        const result: ParsedYaml = {};
+        let currentSection: ParsedYaml | null = null;
         let currentIndent = 0;
         
         for (const line of lines) {
@@ -229,7 +233,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             
             if (trimmed === 'subs:') {
                 result.subs = {};
-                currentSection = result.subs;
+                currentSection = result.subs as ParsedYaml;
                 currentIndent = indent;
                 continue;
             }
@@ -248,14 +252,17 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             }
         }
         
-        return result;
+        // Flatten the result to create proper substitution variables
+        const flattened: SubstitutionVariables = {};
+        this.flattenObject(result, '', flattened);
+        return flattened;
     }
 
-    private flattenObject(obj: any, prefix: string, result: SubstitutionVariables): void {
+    private flattenObject(obj: Record<string, unknown>, prefix: string, result: SubstitutionVariables): void {
         for (const [key, value] of Object.entries(obj)) {
             const newKey = prefix ? `${prefix}.${key}` : key;
             if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                this.flattenObject(value, newKey, result);
+                this.flattenObject(value as Record<string, unknown>, newKey, result);
             } else {
                 result[newKey] = String(value);
             }

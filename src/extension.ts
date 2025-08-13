@@ -6,9 +6,12 @@ import { DirectiveDiagnosticProvider } from './directiveDiagnosticProvider';
 import { SubstitutionCompletionProvider } from './substitutionCompletionProvider';
 import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 
+// Create output channel for logging
+export const outputChannel = vscode.window.createOutputChannel('Elastic Docs V3');
+
 export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
-    console.log('Elastic Docs V3 Utilities: Extension activated');
+    outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
     
     // Apply color customizations programmatically
     applyColorCustomizations();
@@ -17,7 +20,6 @@ export function activate(context: vscode.ExtensionContext): void {
     testGrammarLoading();
     
     // Ensure we're working with markdown files and handle potential conflicts
-    const markdownLanguageId = 'markdown';
     
     // Note: getLanguages() is async, but we'll proceed without this check
     // as the extension should work fine even if markdown support is loaded later
@@ -143,18 +145,18 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Debug: Check grammar loading
     setTimeout(() => {
-        console.log('Elastic Docs V3: Checking grammar loading...');
+        outputChannel.appendLine('Elastic Docs V3: Checking grammar loading...');
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            console.log('Elastic Docs V3: Active document is markdown');
-            console.log('Elastic Docs V3: Document URI:', activeEditor.document.uri.toString());
+            outputChannel.appendLine('Elastic Docs V3: Active document is markdown');
+            outputChannel.appendLine(`Elastic Docs V3: Document URI: ${activeEditor.document.uri.toString()}`);
         }
     }, 2000);
 }
 
 function applyColorCustomizations(): void {
     const config = vscode.workspace.getConfiguration('editor');
-    const currentCustomizations = config.get('tokenColorCustomizations') as any || {};
+    const currentCustomizations = config.get('tokenColorCustomizations') as Record<string, unknown> || {};
     
     // Define our custom color rules
     const elasticRules = [
@@ -222,7 +224,7 @@ function applyColorCustomizations(): void {
     ];
     
     // Merge with existing rules
-    const existingRules = currentCustomizations.textMateRules || [];
+    const existingRules = (currentCustomizations.textMateRules as unknown[]) || [];
     const newRules = [...existingRules, ...elasticRules];
     
     // Apply the customizations
@@ -237,7 +239,7 @@ function testGrammarLoading(): void {
     setTimeout(() => {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            console.log('Elastic Docs V3: Testing grammar on active markdown file');
+            outputChannel.appendLine('Elastic Docs V3: Testing grammar on active markdown file');
             
             // Check if our scopes are being applied
             const document = activeEditor.document;
@@ -246,7 +248,7 @@ function testGrammarLoading(): void {
             
             if (token) {
                 const tokens = document.getText(token);
-                console.log(`Elastic Docs V3: Found tokens at start: ${tokens}`);
+                outputChannel.appendLine(`Elastic Docs V3: Found tokens at start: ${tokens}`);
             }
         }
     }, 2000);
