@@ -1,0 +1,611 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Elastic Documentation Frontmatter Schema",
+  "description": "Complete schema for Elastic documentation frontmatter, including applies_to metadata and all other supported fields",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Page title for the document. Used for page metadata and display purposes."
+    },
+    "description": {
+      "type": "string",
+      "description": "Page description for search engines and social media. Recommended to be around 150 characters. If not set, will be auto-generated from page content.",
+      "maxLength": 200
+    },
+    "navigation_title": {
+      "type": "string",
+      "description": "Custom title for navigation features: appears in left nav (table of contents), breadcrumbs, and previous/next links. If not set, uses the first heading (H1)."
+    },
+    "sub": {
+      "type": "object",
+      "description": "Substitution variables for the page. These can be referenced in the content using {{variable_name}} syntax.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["landing-page", "not-found", "archive"],
+      "description": "Page layout template to use for rendering. Affects the visual presentation and structure of the page."
+    },
+    "applies_to": {
+      "type": "object",
+      "description": "Root object containing all applicability information",
+      "properties": {
+        "stack": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Stack applicability across all components"
+        },
+        "deployment": {
+          "$ref": "#/definitions/deploymentApplicability",
+          "description": "Deployment model specific applicability"
+        },
+        "serverless": {
+          "$ref": "#/definitions/serverlessProjectApplicability",
+          "description": "Serverless project specific applicability"
+        },
+        "product": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "General product applicability (legacy field)"
+        },
+        "ecctl": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "ecctl tool applicability"
+        },
+        "curator": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Curator tool applicability"
+        },
+        "apm_agent_android": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Android agent applicability"
+        },
+        "apm_agent_dotnet": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM .NET agent applicability"
+        },
+        "apm_agent_go": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Go agent applicability"
+        },
+        "apm_agent_ios": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM iOS agent applicability"
+        },
+        "apm_agent_java": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Java agent applicability"
+        },
+        "apm_agent_node": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Node.js agent applicability"
+        },
+        "apm_agent_php": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM PHP agent applicability"
+        },
+        "apm_agent_python": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Python agent applicability"
+        },
+        "apm_agent_ruby": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM Ruby agent applicability"
+        },
+        "apm_agent_rum": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "APM RUM agent applicability"
+        },
+        "edot_ios": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot iOS applicability"
+        },
+        "edot_android": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot Android applicability"
+        },
+        "edot_dotnet": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot .NET applicability"
+        },
+        "edot_java": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot Java applicability"
+        },
+        "edot_node": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot Node.js applicability"
+        },
+        "edot_php": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot PHP applicability"
+        },
+        "edot_python": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot Python applicability"
+        },
+        "edot_cf_aws": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot CloudFormation AWS applicability"
+        },
+        "edot_collector": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot Collector applicability"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "deployment": {
+                "type": "string"
+              }
+            }
+          },
+          "then": {
+            "description": "When deployment is a string, it applies the same applicability to all deployment types (ece, eck, ess, self)"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "serverless": {
+                "type": "string"
+              }
+            }
+          },
+          "then": {
+            "description": "When serverless is a string, it applies the same applicability to all serverless projects (elasticsearch, observability, security)"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "product": {
+                "type": "object"
+              }
+            }
+          },
+          "then": {
+            "description": "When product is an object, it should contain individual product keys. The legacy 'product' string field is also supported."
+          }
+        }
+      ]
+    },
+    "mapped_pages": {
+      "type": "array",
+      "description": "List of page paths that this page maps to. Used for legacy URL mapping and redirects.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "products": {
+      "type": "array",
+      "description": "List of products that the page relates to. Used for the 'Products' filter in the Search UI. Not displayed on docs pages.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "apm", "apm-agent", "auditbeat", "beats", "cloud-control-ecctl", "cloud-enterprise", 
+              "cloud-hosted", "cloud-kubernetes", "cloud-serverless", "cloud-terraform", "ecs", 
+              "ecs-logging", "edot-cf", "edot-sdk", "edot-collector", "elastic-agent", 
+              "elastic-serverless-forwarder", "elastic-stack", "elasticsearch", "elasticsearch-client", 
+              "filebeat", "fleet", "heartbeat", "integrations", "kibana", "logstash", 
+              "machine-learning", "metricbeat", "observability", "packetbeat", "painless", 
+              "search-ui", "security", "winlogbeat"
+            ],
+            "description": "Product identifier. Must match one of the predefined product IDs."
+          }
+        },
+        "required": ["id"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "appliesCollection": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": ["all", "ga", "preview", "beta", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"]
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
+        }
+      ],
+      "description": "AppliesCollection can be a simple lifecycle state, lifecycle with version, or comma-separated list of lifecycle:version pairs"
+    },
+    "deploymentApplicability": {
+      "type": "object",
+      "properties": {
+        "self": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Self-managed deployment applicability"
+        },
+        "ece": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud Enterprise applicability"
+        },
+        "eck": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud on Kubernetes applicability"
+        },
+        "ess": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud (ESS) applicability"
+        }
+      },
+      "additionalProperties": false
+    },
+    "serverlessProjectApplicability": {
+      "type": "object",
+      "properties": {
+        "elasticsearch": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elasticsearch Serverless applicability"
+        },
+        "observability": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Observability Serverless applicability"
+        },
+        "security": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Security Serverless applicability"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "examples": [
+    {
+      "title": "Getting Started with Elasticsearch",
+      "description": "Learn how to install, configure, and start using Elasticsearch for search and analytics.",
+      "navigation_title": "Getting Started",
+      "applies_to": {
+        "stack": "ga 9.1",
+        "serverless": "ga 9.0.0"
+      },
+      "products": [
+        {"id": "elasticsearch"},
+        {"id": "elastic-stack"}
+      ]
+    },
+    {
+      "navigation_title": "APM Agent Configuration",
+      "description": "Configure APM agents for different programming languages and frameworks.",
+      "applies_to": {
+        "apm_agent_dotnet": "ga 9.0",
+        "apm_agent_node": "ga 10.0",
+        "edot_ios": "preview 1.0.0"
+      },
+      "products": [
+        {"id": "apm-agent"},
+        {"id": "edot-sdk"}
+      ],
+      "sub": {
+        "version": "9.0",
+        "platform": "dotnet"
+      }
+    },
+    {
+      "layout": "landing-page",
+      "navigation_title": "Elastic Cloud Overview",
+      "description": "Deploy and manage Elasticsearch, Kibana, and other Elastic Stack components in the cloud.",
+      "applies_to": {
+        "deployment": {
+          "ess": "ga 9.0",
+          "ece": "ga 9.0",
+          "eck": "ga 9.0"
+        },
+        "serverless": {
+          "security": "ga 9.0.0",
+          "elasticsearch": "beta 9.1.0",
+          "observability": "removed 9.2.0"
+        }
+      },
+      "products": [
+        {"id": "cloud-hosted"},
+        {"id": "cloud-enterprise"},
+        {"id": "cloud-kubernetes"}
+      ]
+    },
+    {
+      "layout": "archive",
+      "navigation_title": "Legacy Documentation",
+      "description": "Archive of deprecated and removed features from previous versions.",
+      "applies_to": {
+        "stack": "removed 8.0"
+      },
+      "mapped_pages": [
+        "/legacy/old-feature.md",
+        "/legacy/deprecated-tool.md"
+      ]
+    }
+  ],
+  "metadata": {
+    "lifecycleStates": {
+      "description": "Valid lifecycle states for applicability",
+      "values": [
+        {
+          "key": "preview",
+          "alias": "preview",
+          "description": "Technical preview - feature is available but not production ready"
+        },
+        {
+          "key": "beta",
+          "alias": "beta", 
+          "description": "Beta release - feature is stable but may have bugs"
+        },
+        {
+          "key": "ga",
+          "alias": "ga",
+          "description": "Generally available - feature is production ready"
+        },
+        {
+          "key": "deprecated",
+          "alias": "deprecated",
+          "description": "Deprecated - feature will be removed in future version"
+        },
+        {
+          "key": "removed",
+          "alias": "removed",
+          "description": "Removed - feature no longer exists"
+        },
+        {
+          "key": "unavailable",
+          "alias": "unavailable",
+          "description": "Unavailable - feature doesn't exist in this context"
+        },
+        {
+          "key": "planned",
+          "alias": "planned",
+          "description": "Planned - feature is coming in future (deprecated)"
+        },
+        {
+          "key": "development",
+          "alias": "development",
+          "description": "Development version (deprecated)"
+        },
+        {
+          "key": "discontinued",
+          "alias": "discontinued",
+          "description": "Discontinued - feature is no longer supported (deprecated)"
+        }
+      ]
+    },
+    "versionFormat": {
+      "description": "Version format specification",
+      "pattern": "^[0-9]+(\\.[0-9]+)*$",
+      "examples": ["9.0", "9.1.0", "10.0.0"],
+      "notes": "Versions are optional. If omitted, applies to all versions. Use semantic versioning format."
+    },
+    "usageContexts": {
+      "description": "Where applies_to can be used",
+      "contexts": [
+        {
+          "name": "page-level",
+          "location": "YAML frontmatter",
+          "requirement": "mandatory",
+          "description": "Must be included in every page's frontmatter"
+        },
+        {
+          "name": "section-level", 
+          "location": "{applies_to} directive after headers",
+          "requirement": "optional",
+          "description": "Used when section applicability differs from page-level"
+        },
+        {
+          "name": "inline",
+          "location": "{applies_to} role within text",
+          "requirement": "optional", 
+          "description": "Used for fine-grained applicability annotations"
+        }
+      ]
+    },
+    "specialValues": {
+      "description": "Special values with special meaning",
+      "values": [
+        {
+          "value": "all",
+          "description": "Shorthand for generally available in all versions",
+          "equivalent": "ga"
+        },
+        {
+          "value": "ga",
+          "description": "Generally available in all versions (when no version specified)"
+        }
+      ]
+    },
+    "conditionalValidations": {
+      "description": "Conditional validation rules and field interdependencies",
+      "rules": [
+        {
+          "name": "deployment_string_expansion",
+          "description": "When deployment is a string value, it automatically applies to all deployment types",
+          "condition": "deployment is string",
+          "effect": "Sets ece, eck, ess, and self to the same value",
+          "example": "deployment: 'ga 9.0' → {ece: 'ga 9.0', eck: 'ga 9.0', ess: 'ga 9.0', self: 'ga 9.0'}"
+        },
+        {
+          "name": "serverless_string_expansion",
+          "description": "When serverless is a string value, it automatically applies to all serverless projects",
+          "condition": "serverless is string",
+          "effect": "Sets elasticsearch, observability, and security to the same value",
+          "example": "serverless: 'beta 9.1' → {elasticsearch: 'beta 9.1', observability: 'beta 9.1', security: 'beta 9.1'}"
+        },
+        {
+          "name": "product_field_duality",
+          "description": "The 'product' field can be either a string (legacy) or an object (new format)",
+          "condition": "product field present",
+          "effect": "If string, sets Product property. If object, sets ProductApplicability property",
+          "example": "product: 'ga 9.0' vs product: {apm_agent_dotnet: 'ga 9.0'}"
+        },
+        {
+          "name": "empty_value_defaults",
+          "description": "Empty or null values default to 'ga' (generally available)",
+          "condition": "field value is null, empty string, or whitespace",
+          "effect": "Sets field to AppliesCollection.GenerallyAvailable",
+          "example": "deployment: null → deployment: {ece: 'ga', eck: 'ga', ess: 'ga', self: 'ga'}"
+        }
+      ]
+    },
+    "fieldInterdependencies": {
+      "description": "How fields interact with each other",
+      "dependencies": [
+        {
+          "field": "deployment",
+          "type": "string",
+          "affects": ["ece", "eck", "ess", "self"],
+          "description": "String value gets expanded to all deployment types"
+        },
+        {
+          "field": "serverless",
+          "type": "string", 
+          "affects": ["elasticsearch", "observability", "security"],
+          "description": "String value gets expanded to all serverless projects"
+        },
+        {
+          "field": "product",
+          "type": "object",
+          "affects": ["ProductApplicability property"],
+          "description": "Object value sets ProductApplicability instead of Product"
+        }
+      ]
+    },
+    "dynamicVsStaticValues": {
+      "description": "Which fields have predefined enums vs dynamic values",
+      "staticEnums": [
+        {
+          "field": "deployment",
+          "values": ["ece", "eck", "ess", "self"],
+          "type": "fixed",
+          "description": "These deployment types are hardcoded in the enum"
+        },
+        {
+          "field": "serverless", 
+          "values": ["elasticsearch", "observability", "security"],
+          "type": "fixed",
+          "description": "These serverless projects are hardcoded in the enum"
+        }
+      ],
+      "dynamicValues": [
+        {
+          "field": "individual_products",
+          "values": ["ecctl", "curator", "apm_agent_*", "edot_*"],
+          "type": "dynamic",
+          "description": "Individual product keys are defined in ProductApplicability record and can be extended"
+        },
+        {
+          "field": "lifecycle_states",
+          "values": ["preview", "beta", "ga", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"],
+          "type": "enum",
+          "description": "Lifecycle states are predefined in ProductLifecycle enum"
+        },
+        {
+          "field": "versions",
+          "values": "semantic versioning pattern",
+          "type": "dynamic",
+          "description": "Version numbers follow semantic versioning and are parsed dynamically"
+        }
+      ]
+    },
+    "validationWarnings": {
+      "description": "Warnings generated during parsing",
+      "warnings": [
+        {
+          "code": "empty_applies_to",
+          "message": "The 'applies_to' field is present but empty. No applicability will be assumed.",
+          "severity": "Warning",
+          "condition": "applies_to field is empty or whitespace"
+        },
+        {
+          "code": "old_syntax_keys",
+          "message": "Applies block does not use valid yaml keys: {keys}",
+          "severity": "Warning", 
+          "condition": "Keys starting with ':' are detected (legacy syntax)"
+        },
+        {
+          "code": "unknown_keys",
+          "message": "Applies block does not support the following keys: {keys}",
+          "severity": "Warning",
+          "condition": "Unknown keys not in KnownKeys array are detected"
+        }
+      ]
+    },
+    "knownKeys": {
+      "description": "Complete list of valid keys recognized by the parser",
+      "keys": [
+        "stack", "deployment", "serverless", "product",
+        "ece", "eck", "ess", "self",
+        "elasticsearch", "observability", "security", 
+        "ecctl", "curator",
+        "apm_agent_android", "apm_agent_dotnet", "apm_agent_go", "apm_agent_ios", "apm_agent_java", "apm_agent_node", "apm_agent_php", "apm_agent_python", "apm_agent_ruby", "apm_agent_rum",
+        "edot_ios", "edot_android", "edot_dotnet", "edot_java", "edot_node", "edot_php", "edot_python", "edot_cf_aws", "edot_collector"
+      ]
+    },
+    "frontmatterFields": {
+      "description": "Complete list of all frontmatter fields supported by the system",
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": false,
+          "description": "Page title for metadata and display"
+        },
+        {
+          "name": "description", 
+          "type": "string",
+          "required": false,
+          "description": "Page description for SEO and social media (max 200 chars)"
+        },
+        {
+          "name": "navigation_title",
+          "type": "string", 
+          "required": false,
+          "description": "Custom title for navigation elements"
+        },
+        {
+          "name": "sub",
+          "type": "object",
+          "required": false,
+          "description": "Substitution variables for the page"
+        },
+        {
+          "name": "layout",
+          "type": "string",
+          "required": false,
+          "enum": ["landing-page", "not-found", "archive"],
+          "description": "Page layout template"
+        },
+        {
+          "name": "applies_to",
+          "type": "object",
+          "required": true,
+          "description": "Product and version applicability (mandatory)"
+        },
+        {
+          "name": "mapped_pages",
+          "type": "array",
+          "required": false,
+          "description": "Legacy URL mappings and redirects"
+        },
+        {
+          "name": "products",
+          "type": "array",
+          "required": false,
+          "description": "Product associations for search filtering"
+        }
+      ]
+    }
+  }
+}

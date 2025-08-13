@@ -5,6 +5,8 @@ import { RoleCompletionProvider } from './roleCompletionProvider';
 import { DirectiveDiagnosticProvider } from './directiveDiagnosticProvider';
 import { SubstitutionCompletionProvider } from './substitutionCompletionProvider';
 import { SubstitutionHoverProvider } from './substitutionHoverProvider';
+import { FrontmatterCompletionProvider } from './frontmatterCompletionProvider';
+import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 
 import { outputChannel } from './logger';
 
@@ -30,6 +32,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const diagnosticProvider = new DirectiveDiagnosticProvider();
     const substitutionProvider = new SubstitutionCompletionProvider();
     const substitutionHoverProvider = new SubstitutionHoverProvider();
+    const frontmatterProvider = new FrontmatterCompletionProvider();
+    const frontmatterValidator = new FrontmatterValidationProvider();
 
     // Register completion providers for markdown files
     context.subscriptions.push(
@@ -74,15 +78,32 @@ export function activate(context: vscode.ExtensionContext): void {
     );
     outputChannel.appendLine('Substitution hover provider registered');
 
-    // Register diagnostic provider for directive validation
+    // Register frontmatter completion provider
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(
+            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            frontmatterProvider,
+            ':', ' ', '-'
+        )
+    );
+    outputChannel.appendLine('Frontmatter completion provider registered');
+
+    // Register diagnostic providers
     const diagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-directives');
+    const frontmatterDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-frontmatter');
     context.subscriptions.push(diagnosticCollection);
+    context.subscriptions.push(frontmatterDiagnosticCollection);
     
     // Update diagnostics when document changes
     const updateDiagnostics = (document: vscode.TextDocument): void => {
         if (document.languageId === 'markdown') {
+            // Directive diagnostics
             const diagnostics = diagnosticProvider.provideDiagnostics(document);
             diagnosticCollection.set(document.uri, diagnostics);
+            
+            // Frontmatter diagnostics
+            const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
+            frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
         }
     };
     
@@ -102,6 +123,17 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => {
             updateDiagnostics(document);
+        })
+    );
+
+    // Listen for document saves (for frontmatter validation)
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(document => {
+            if (document.languageId === 'markdown') {
+                // Re-run frontmatter validation on save
+                const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
+                frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+            }
         })
     );
 

@@ -22,25 +22,18 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
     ): vscode.ProviderResult<vscode.CompletionItem[] | vscode.CompletionList> {
-        outputChannel.appendLine('[DEBUG] Substitution completion provider triggered');
         try {
             const lineText = document.lineAt(position).text;
             const textBefore = lineText.substring(0, position.character);
             
-            outputChannel.appendLine(`[DEBUG] Line text: "${lineText}"`);
-            outputChannel.appendLine(`[DEBUG] Text before cursor: "${textBefore}"`);
-            
             // Check if we're typing {{ for substitution
             const substitutionMatch = textBefore.match(/\{\{([^}]*)$/);
             if (!substitutionMatch) {
-                outputChannel.appendLine('[DEBUG] No {{ pattern found');
                 return [];
             }
 
-            outputChannel.appendLine(`[DEBUG] Found {{ pattern, partial: "${substitutionMatch[1]}"`);
             const partialVariable = substitutionMatch[1];
             const substitutions = this.getSubstitutionsFromWorkspace(document.uri);
-            outputChannel.appendLine(`[DEBUG] Retrieved ${Object.keys(substitutions).length} substitutions`);
             
             return this.createCompletionItems(substitutions, partialVariable);
         } catch (error) {
@@ -50,7 +43,6 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
     }
 
     private getSubstitutionsFromWorkspace(documentUri: vscode.Uri): SubstitutionVariables {
-        outputChannel.appendLine(`[DEBUG] Getting substitutions for document: ${documentUri.toString()}`);
         
         const now = Date.now();
         
@@ -58,23 +50,18 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         if (now - this.lastCacheUpdate < this.CACHE_DURATION) {
             const cached = this.cachedSubstitutions.get(documentUri.fsPath);
             if (cached) {
-                outputChannel.appendLine(`[DEBUG] Using cached substitutions: ${Object.keys(cached).length} items`);
                 return cached;
             }
         }
 
-        outputChannel.appendLine('[DEBUG] Cache miss, searching for docset.yml files');
         const substitutions: SubstitutionVariables = {};
         
         try {
             // Find all docset.yml files in the workspace
             const docsetFiles = this.findDocsetFiles(documentUri);
-            outputChannel.appendLine(`[DEBUG] Found ${docsetFiles.length} docset.yml files`);
             
             for (const docsetFile of docsetFiles) {
-                outputChannel.appendLine(`[DEBUG] Parsing docset file: ${docsetFile}`);
                 const fileSubstitutions = this.parseDocsetFile(docsetFile);
-                outputChannel.appendLine(`[DEBUG] File ${docsetFile} contained ${Object.keys(fileSubstitutions).length} substitutions`);
                 Object.assign(substitutions, fileSubstitutions);
             }
             
@@ -94,15 +81,12 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         const documentPath = documentUri.fsPath;
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         
-        outputChannel.appendLine(`[DEBUG] Finding docset files for document: ${documentPath}`);
         
         if (!workspaceFolder) {
-            outputChannel.appendLine('[DEBUG] No workspace folder found');
             return docsetFiles;
         }
         
         const workspaceRoot = workspaceFolder.uri.fsPath;
-        outputChannel.appendLine(`[DEBUG] Workspace root: ${workspaceRoot}`);
         
         // Define possible docset file names
         const docsetFileNames = ['docset.yml', '_docset.yml'];
@@ -110,9 +94,7 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         // Check workspace root
         for (const fileName of docsetFileNames) {
             const rootDocsetPath = path.join(workspaceRoot, fileName);
-            outputChannel.appendLine(`[DEBUG] Checking for: ${rootDocsetPath}`);
             if (fs.existsSync(rootDocsetPath)) {
-                outputChannel.appendLine(`[DEBUG] Found docset file: ${rootDocsetPath}`);
                 docsetFiles.push(rootDocsetPath);
             }
         }
@@ -152,26 +134,18 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
     private parseDocsetFile(filePath: string): SubstitutionVariables {
         try {
             const content = fs.readFileSync(filePath, 'utf8');
-            outputChannel.appendLine(`[DEBUG] File content length: ${content.length} characters`);
-            outputChannel.appendLine(`[DEBUG] First 200 chars: ${content.substring(0, 200)}`);
             
             const parsed = this.parseYaml(content);
-            outputChannel.appendLine(`[DEBUG] Parsed YAML has subs property: ${'subs' in parsed}`);
             
             if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
                 const subs = parsed.subs;
-                outputChannel.appendLine(`[DEBUG] Found subs section, type: ${typeof subs}, keys: ${Object.keys(subs || {}).length}`);
                 
                 // The subs section is already properly parsed as key-value pairs
                 if (typeof subs === 'object' && subs !== null) {
                     const result = subs as SubstitutionVariables;
-                    outputChannel.appendLine(`[DEBUG] Returning ${Object.keys(result).length} substitutions`);
-                    outputChannel.appendLine(`[DEBUG] First few keys: ${Object.keys(result).slice(0, 5).join(', ')}`);
                     return result;
                 }
                 return subs as unknown as SubstitutionVariables;
-            } else {
-                outputChannel.appendLine(`[DEBUG] No subs section found in parsed YAML`);
             }
             
             return {};
@@ -187,9 +161,7 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         const result: ParsedYaml = {};
         let currentSection: ParsedYaml | null = null;
         let currentIndent = 0;
-        let parsedCount = 0;
         
-        outputChannel.appendLine(`[DEBUG] Parsing YAML with ${lines.length} lines`);
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -199,7 +171,6 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
             const indent = line.length - line.trimStart().length;
             
             if (trimmed === 'subs:') {
-                outputChannel.appendLine(`[DEBUG] Found 'subs:' section at line ${i + 1}`);
                 result.subs = {};
                 currentSection = result.subs as ParsedYaml;
                 currentIndent = indent;
@@ -216,16 +187,11 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
                     // Remove quotes if present
                     const cleanValue = value.replace(/^["']|["']$/g, '');
                     currentSection[key] = cleanValue;
-                    parsedCount++;
                     
-                    if (parsedCount <= 5) {
-                        outputChannel.appendLine(`[DEBUG] Parsed: ${key} = ${cleanValue}`);
-                    }
                 }
             }
         }
         
-        outputChannel.appendLine(`[DEBUG] YAML parsing complete, parsed ${parsedCount} key-value pairs`);
         return result;
     }
 
