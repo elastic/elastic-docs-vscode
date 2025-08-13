@@ -100,44 +100,106 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         
         outputChannel.appendLine(`[FrontmatterCompletion] Detected path: [${path.join(',')}]`);
 
-        // Determine completion type
-        if (this.isFieldName(textBefore, textAfter)) {
+        // Determine context based on indentation and schema
+        const context = this.determineSchemaContext(textBefore, textAfter, path, position.line - frontmatterRange.start.line - 1, lines);
+        
+        outputChannel.appendLine(`[FrontmatterCompletion] Determined context: ${JSON.stringify(context)}`);
+        
+        return context;
+    }
+
+    private determineSchemaContext(textBefore: string, textAfter: string, path: string[], currentLineIndex: number, lines: string[]): FrontmatterContext | null {
+        const currentIndent = textBefore.length - textBefore.trimStart().length;
+        const trimmedBefore = textBefore.trim();
+        
+        outputChannel.appendLine(`[FrontmatterCompletion] Schema context analysis: indent=${currentIndent}, trimmed="${trimmedBefore}"`);
+        
+        // Case 1: Typing after "field:" with proper indentation - suggest child fields
+        if (this.isIndentedNewField(textBefore, currentIndent, lines, currentLineIndex)) {
+            const parentPath = this.getParentPathFromIndentation(currentIndent, lines, currentLineIndex);
+            outputChannel.appendLine(`[FrontmatterCompletion] Indented field context, parent path: [${parentPath.join(',')}]`);
+            
             return {
                 type: 'field_name',
-                path,
-                yamlStructure
+                path: parentPath,
+                yamlStructure: {}
             };
-        } else if (this.isFieldValue(textBefore)) {
+        }
+        
+        // Case 2: Typing field value after ":"
+        if (this.isFieldValue(textBefore)) {
             const fieldName = this.extractFieldName(textBefore);
             return {
                 type: 'field_value',
                 path,
                 currentField: fieldName,
-                yamlStructure
+                yamlStructure: {}
             };
-        } else if (this.isListItem(textBefore)) {
+        }
+        
+        // Case 3: Array item context "- "
+        if (trimmedBefore.startsWith('-') || textBefore.match(/^\s*-\s*[a-zA-Z_]*$/)) {
             return {
                 type: 'list_item',
                 path,
-                yamlStructure
-            };
-        } else if (this.isObjectKey(textBefore, path)) {
-            return {
-                type: 'object_key',
-                path,
-                yamlStructure
-            };
-        } else if (this.isObjectValue(textBefore, path)) {
-            const fieldName = path[path.length - 1];
-            return {
-                type: 'object_value',
-                path,
-                currentField: fieldName,
-                yamlStructure
+                yamlStructure: {}
             };
         }
-
+        
+        // Case 4: Root level field (no indentation)
+        if (currentIndent === 0 && !textAfter.includes(':')) {
+            return {
+                type: 'field_name',
+                path: [],
+                yamlStructure: {}
+            };
+        }
+        
         return null;
+    }
+
+    private isIndentedNewField(textBefore: string, currentIndent: number, lines: string[], currentLineIndex: number): boolean {
+        // Must have some indentation
+        if (currentIndent === 0) return false;
+        
+        // Look back to find the parent field
+        for (let i = currentLineIndex - 1; i >= 0; i--) {
+            const line = lines[i];
+            if (!line || !line.trim()) continue;
+            
+            const lineIndent = line.length - line.trimStart().length;
+            
+            // Found a parent field with less indentation that ends with ":"
+            if (lineIndent < currentIndent && line.trim().endsWith(':')) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+
+    private getParentPathFromIndentation(currentIndent: number, lines: string[], currentLineIndex: number): string[] {
+        const path: string[] = [];
+        
+        // Walk backwards to build the path based on indentation
+        for (let i = currentLineIndex - 1; i >= 0; i--) {
+            const line = lines[i];
+            if (!line || !line.trim()) continue;
+            
+            const lineIndent = line.length - line.trimStart().length;
+            const trimmed = line.trim();
+            
+            // If this line has less indentation and is a field, add it to path
+            if (lineIndent < currentIndent && trimmed.includes(':') && !trimmed.startsWith('-')) {
+                const fieldName = trimmed.split(':')[0].trim();
+                path.unshift(fieldName);
+                
+                // Continue looking for more parents
+                currentIndent = lineIndent;
+            }
+        }
+        
+        return path;
     }
 
     private isFieldName(textBefore: string, textAfter: string): boolean {
@@ -255,43 +317,114 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private getFieldNameCompletions(path: string[]): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
         
+        outputChannel.appendLine(`[FrontmatterCompletion] Getting field completions for path: [${path.join(',')}]`);
 
         // Root level field names
         if (path.length === 0) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Root level completions`);
             for (const [fieldName, fieldSchema] of Object.entries(this.schema.properties)) {
+                const schema = fieldSchema as any;
                 const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
-                item.detail = fieldSchema.description || `${fieldSchema.type} field`;
-                item.documentation = new vscode.MarkdownString(fieldSchema.description);
+                item.detail = schema.description || `${schema.type} field`;
+                item.documentation = new vscode.MarkdownString(schema.description);
                 item.insertText = `${fieldName}: `;
                 items.push(item);
+                outputChannel.appendLine(`[FrontmatterCompletion] Added root field: ${fieldName}`);
             }
         } else {
-            // Nested field completions based on path
-            const parentSchema = this.getSchemaAtPath(path);
-            if (parentSchema && parentSchema.properties) {
-                for (const [fieldName, fieldSchema] of Object.entries(parentSchema.properties)) {
-                    const schema = fieldSchema as { description?: string; type?: string };
-                    const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
-                    item.detail = schema.description || `${schema.type} field`;
-                    item.documentation = new vscode.MarkdownString(schema.description);
-                    item.insertText = `${fieldName}: `;
+            // Handle special schema paths
+            const completions = this.getSchemaBasedCompletions(path);
+            items.push(...completions);
+        }
+
+        outputChannel.appendLine(`[FrontmatterCompletion] Returning ${items.length} field completions`);
+        return items;
+    }
+
+    private getSchemaBasedCompletions(path: string[]): vscode.CompletionItem[] {
+        const items: vscode.CompletionItem[] = [];
+        const pathString = path.join('.');
+        
+        outputChannel.appendLine(`[FrontmatterCompletion] Schema-based completions for path: ${pathString}`);
+        
+        // Special handling for applies_to paths
+        if (path[0] === 'applies_to') {
+            if (path.length === 1) {
+                // Direct children of applies_to
+                const knownKeys = this.schema.metadata.knownKeys.keys;
+                const topLevelKeys = ['stack', 'deployment', 'serverless', 'product'];
+                
+                for (const key of topLevelKeys) {
+                    const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Field);
+                    item.detail = this.getAppliesKeyDescription(key);
+                    item.insertText = `${key}: `;
                     items.push(item);
+                    outputChannel.appendLine(`[FrontmatterCompletion] Added applies_to field: ${key}`);
+                }
+            } else if (path.length === 2) {
+                // Children of specific applies_to fields
+                const parentKey = path[1];
+                if (parentKey === 'deployment') {
+                    const deploymentDef = this.schema.definitions.deploymentApplicability;
+                    if (deploymentDef && deploymentDef.properties) {
+                        for (const key of Object.keys(deploymentDef.properties)) {
+                            const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Field);
+                            item.detail = this.getAppliesKeyDescription(key);
+                            item.insertText = `${key}: `;
+                            items.push(item);
+                            outputChannel.appendLine(`[FrontmatterCompletion] Added deployment field: ${key}`);
+                        }
+                    }
+                } else if (parentKey === 'serverless') {
+                    const serverlessDef = this.schema.definitions.serverlessProjectApplicability;
+                    if (serverlessDef && serverlessDef.properties) {
+                        for (const key of Object.keys(serverlessDef.properties)) {
+                            const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Field);
+                            item.detail = this.getAppliesKeyDescription(key);
+                            item.insertText = `${key}: `;
+                            items.push(item);
+                            outputChannel.appendLine(`[FrontmatterCompletion] Added serverless field: ${key}`);
+                        }
+                    }
+                } else if (parentKey === 'product') {
+                    // Individual product keys
+                    const knownKeys = this.schema.metadata.knownKeys.keys.filter(key => 
+                        !['stack', 'deployment', 'serverless', 'product'].includes(key)
+                    );
+                    for (const key of knownKeys) {
+                        const item = new vscode.CompletionItem(key, vscode.CompletionItemKind.Field);
+                        item.detail = this.getAppliesKeyDescription(key);
+                        item.insertText = `${key}: `;
+                        items.push(item);
+                        outputChannel.appendLine(`[FrontmatterCompletion] Added product field: ${key}`);
+                    }
                 }
             }
         }
-
+        
         return items;
     }
 
     private getFieldValueCompletions(fieldName: string, path: string[]): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
         
+        outputChannel.appendLine(`[FrontmatterCompletion] Getting value completions for field: ${fieldName}, path: [${path.join(',')}]`);
+
+        // Handle applies_to lifecycle values (most common case)
+        if (this.isAppliesField(fieldName, path)) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Field is applies_to related, providing lifecycle completions`);
+            return this.getLifecycleStateCompletions();
+        }
 
         const fieldSchema = this.getFieldSchema(fieldName, path);
-        if (!fieldSchema) return items;
+        if (!fieldSchema) {
+            outputChannel.appendLine(`[FrontmatterCompletion] No schema found for field: ${fieldName}`);
+            return items;
+        }
 
-        // Handle enum values
+        // Handle enum values from schema
         if (fieldSchema.enum) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Found enum values: ${fieldSchema.enum.join(', ')}`);
             for (const value of fieldSchema.enum) {
                 const item = new vscode.CompletionItem(value, vscode.CompletionItemKind.Value);
                 item.insertText = `"${value}"`;
@@ -309,11 +442,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
             }
         }
 
-        // Handle applies_to values
-        if (this.isAppliesField(fieldName, path)) {
-            return this.getAppliesValueCompletions();
-        }
-
+        outputChannel.appendLine(`[FrontmatterCompletion] Returning ${items.length} value completions`);
         return items;
     }
 
@@ -396,39 +525,54 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         return [];
     }
 
-    private getAppliesValueCompletions(): vscode.CompletionItem[] {
+    private getLifecycleStateCompletions(): vscode.CompletionItem[] {
         const items: vscode.CompletionItem[] = [];
         
+        outputChannel.appendLine(`[FrontmatterCompletion] Providing lifecycle state completions`);
 
         const lifecycleStates = this.schema.metadata.lifecycleStates.values;
         
         // Simple lifecycle states
         for (const state of lifecycleStates) {
             const item = new vscode.CompletionItem(state.key, vscode.CompletionItemKind.Value);
-            item.insertText = `"${state.key}"`;
+            item.insertText = state.key; // No quotes for simple completion
             item.detail = state.description;
             item.documentation = new vscode.MarkdownString(state.description);
+            item.sortText = `0${state.key}`; // Priority sort
             items.push(item);
         }
 
-        // Common patterns with versions
+        // Special "all" value
+        const allItem = new vscode.CompletionItem('all', vscode.CompletionItemKind.Value);
+        allItem.insertText = 'all';
+        allItem.detail = 'Generally available in all versions';
+        allItem.sortText = '0all';
+        items.push(allItem);
+
+        // Common patterns with versions (lower priority)
         const commonPatterns = [
-            'ga 9.0',
-            'ga 10.0',
-            'beta 9.1',
-            'preview 1.0.0',
-            'deprecated 8.0',
-            'all'
+            { pattern: 'ga 9.0', description: 'Generally available from version 9.0' },
+            { pattern: 'ga 10.0', description: 'Generally available from version 10.0' },
+            { pattern: 'beta 9.1', description: 'Beta release from version 9.1' },
+            { pattern: 'preview 1.0.0', description: 'Preview release from version 1.0.0' },
+            { pattern: 'deprecated 8.0', description: 'Deprecated since version 8.0' }
         ];
 
-        for (const pattern of commonPatterns) {
+        for (const {pattern, description} of commonPatterns) {
             const item = new vscode.CompletionItem(pattern, vscode.CompletionItemKind.Value);
-            item.insertText = `"${pattern}"`;
-            item.detail = 'Lifecycle state with version';
+            item.insertText = pattern;
+            item.detail = description;
+            item.sortText = `1${pattern}`; // Lower priority
             items.push(item);
         }
 
+        outputChannel.appendLine(`[FrontmatterCompletion] Created ${items.length} lifecycle completions`);
         return items;
+    }
+
+    // Keep the old method name for backward compatibility
+    private getAppliesValueCompletions(): vscode.CompletionItem[] {
+        return this.getLifecycleStateCompletions();
     }
 
     private getProductIdCompletions(): vscode.CompletionItem[] {
@@ -482,10 +626,19 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     }
 
     private isAppliesField(fieldName: string, path: string[]): boolean {
-        return path.includes('applies_to') || 
-               ['stack', 'deployment', 'serverless', 'product'].includes(fieldName) ||
-               fieldName.startsWith('apm_agent_') ||
-               fieldName.startsWith('edot_');
+        // If we're anywhere in the applies_to hierarchy, this is a lifecycle field
+        if (path.includes('applies_to')) {
+            outputChannel.appendLine(`[FrontmatterCompletion] Field ${fieldName} is in applies_to path`);
+            return true;
+        }
+        
+        // Check if this is a known applies_to key
+        const knownKeys = this.schema.metadata.knownKeys.keys;
+        const isKnownKey = knownKeys.includes(fieldName);
+        
+        outputChannel.appendLine(`[FrontmatterCompletion] Field ${fieldName} known key check: ${isKnownKey}`);
+        
+        return isKnownKey;
     }
 
     private getAppliesKeyDescription(key: string): string {
