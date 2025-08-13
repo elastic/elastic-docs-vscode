@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { outputChannel } from './extension';
+import { outputChannel } from './logger';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -201,12 +201,9 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             
             if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
                 const subs = parsed.subs;
-                // Handle both flat key-value pairs and nested objects
-                if (typeof subs === 'object') {
-                    // Flatten nested objects if they exist
-                    const flattened: SubstitutionVariables = {};
-                    this.flattenObject(subs, '', flattened);
-                    return flattened;
+                // The subs section is already properly parsed as key-value pairs
+                if (typeof subs === 'object' && subs !== null) {
+                    return subs as SubstitutionVariables;
                 }
                 return subs as unknown as SubstitutionVariables;
             }
@@ -218,7 +215,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
         }
     }
 
-    private parseYaml(content: string): SubstitutionVariables {
+    private parseYaml(content: string): ParsedYaml {
         // Simple YAML parser for the specific structure we need
         const lines = content.split('\n');
         const result: ParsedYaml = {};
@@ -252,10 +249,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             }
         }
         
-        // Flatten the result to create proper substitution variables
-        const flattened: SubstitutionVariables = {};
-        this.flattenObject(result, '', flattened);
-        return flattened;
+        return result;
     }
 
     private flattenObject(obj: Record<string, unknown>, prefix: string, result: SubstitutionVariables): void {

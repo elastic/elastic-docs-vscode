@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { DIRECTIVES } from './directives';
-import { outputChannel } from './extension';
+import { outputChannel } from './logger';
 
 interface DirectiveBlock {
     opening: string;

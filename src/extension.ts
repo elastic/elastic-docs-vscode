@@ -6,12 +6,12 @@ import { DirectiveDiagnosticProvider } from './directiveDiagnosticProvider';
 import { SubstitutionCompletionProvider } from './substitutionCompletionProvider';
 import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 
-// Create output channel for logging
-export const outputChannel = vscode.window.createOutputChannel('Elastic Docs V3');
+import { outputChannel } from './logger';
 
 export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
     outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
+    outputChannel.appendLine('Registering completion providers...');
     
     // Apply color customizations programmatically
     applyColorCustomizations();
@@ -63,6 +63,7 @@ export function activate(context: vscode.ExtensionContext): void {
             '{'
         )
     );
+    outputChannel.appendLine('Substitution completion provider registered');
 
     // Register hover provider for substitution variables
     context.subscriptions.push(
@@ -71,6 +72,7 @@ export function activate(context: vscode.ExtensionContext): void {
             substitutionHoverProvider
         )
     );
+    outputChannel.appendLine('Substitution hover provider registered');
 
     // Register diagnostic provider for directive validation
     const diagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-directives');
