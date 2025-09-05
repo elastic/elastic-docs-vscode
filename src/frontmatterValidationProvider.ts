@@ -27,15 +27,19 @@ export class FrontmatterValidationProvider {
     private readonly FRONTMATTER_START = /^---\s*$/;
     private readonly FRONTMATTER_END = /^---\s*$/;
     
-    // Lifecycle states for validation
+    // Lifecycle states for validation (excluding 'all' which is only valid with a lifecycle state)
     private readonly LIFECYCLE_STATES = [
-        'all', 'ga', 'preview', 'beta', 'deprecated', 'removed', 
+        'ga', 'preview', 'beta', 'deprecated', 'removed', 
         'unavailable', 'planned', 'development', 'discontinued'
     ];
     
     // Version pattern for lifecycle states
     private readonly VERSION_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
     private readonly COMMA_SEPARATED_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
+    
+    // Patterns for "all" validation - only allowed with lifecycle states
+    private readonly LIFECYCLE_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\s+all$/;
+    private readonly COMMA_SEPARATED_WITH_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?$/;
 
     constructor() {
         this.schema = frontmatterSchema as any;
@@ -444,12 +448,31 @@ export class FrontmatterValidationProvider {
             return;
         }
 
+        // Check if it matches lifecycle + "all" pattern
+        if (this.LIFECYCLE_ALL_PATTERN.test(value) || this.COMMA_SEPARATED_WITH_ALL_PATTERN.test(value)) {
+            return;
+        }
+
+        // Check if it's just "all" by itself (invalid)
+        if (value === 'all') {
+            const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
+            if (valueRange) {
+                errors.push({
+                    range: valueRange,
+                    message: `Invalid lifecycle value '${value}'. 'all' must be preceded by a lifecycle state (e.g., 'ga all', 'beta all')`,
+                    severity: vscode.DiagnosticSeverity.Error,
+                    code: 'invalid_lifecycle_value'
+                });
+            }
+            return;
+        }
+
         // Invalid lifecycle value
         const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
         if (valueRange) {
             errors.push({
                 range: valueRange,
-                message: `Invalid lifecycle value '${value}'. Expected format: 'state' or 'state version' (e.g., 'ga', 'beta 9.1', 'deprecated 8.0')`,
+                message: `Invalid lifecycle value '${value}'. Expected format: 'state', 'state version', or 'state all' (e.g., 'ga', 'beta 9.1', 'ga all')`,
                 severity: vscode.DiagnosticSeverity.Error,
                 code: 'invalid_lifecycle_value'
             });

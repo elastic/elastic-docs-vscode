@@ -175,7 +175,7 @@ export const frontmatterSchema = {
       "oneOf": [
         {
           "type": "string",
-          "enum": ["all", "ga", "preview", "beta", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"]
+          "enum": ["ga", "preview", "beta", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"]
         },
         {
           "type": "string",
@@ -184,9 +184,25 @@ export const frontmatterSchema = {
         {
           "type": "string",
           "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
+        },
+        {
+          "type": "string",
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
         }
       ],
-      "description": "AppliesCollection can be a simple lifecycle state, lifecycle with version, or comma-separated list of lifecycle:version pairs"
+      "description": "AppliesCollection can be a simple lifecycle state, lifecycle with version, lifecycle with 'all', or comma-separated list of these patterns"
     },
     "deploymentApplicability": {
       "type": "object",
