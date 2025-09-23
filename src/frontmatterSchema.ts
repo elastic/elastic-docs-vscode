@@ -304,7 +304,7 @@ export const frontmatterSchema = {
         "elasticsearch", "observability", "security", 
         "ecctl", "curator",
         "apm_agent_android", "apm_agent_dotnet", "apm_agent_go", "apm_agent_ios", "apm_agent_java", "apm_agent_node", "apm_agent_php", "apm_agent_python", "apm_agent_ruby", "apm_agent_rum",
-        "edot_ios", "edot_android", "edot_dotnet", "edot_java", "edot_node", "edot_php", "edot_python", "edot_cf_aws", "edot_collector"
+        "edot_ios", "edot_android", "edot_dotnet", "edot_java", "edot_node", "edot_php", "edot_python", "edot_cf_aws", "edot_cf_azure", "edot_collector"
       ]
     }
   }

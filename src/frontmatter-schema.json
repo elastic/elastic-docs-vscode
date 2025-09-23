@@ -99,39 +99,43 @@
         },
         "edot_ios": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot iOS applicability"
+          "description": "EDOT iOS applicability"
         },
         "edot_android": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Android applicability"
+          "description": "EDOT Android applicability"
         },
         "edot_dotnet": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot .NET applicability"
+          "description": "EDOT .NET applicability"
         },
         "edot_java": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Java applicability"
+          "description": "EDOT Java applicability"
         },
         "edot_node": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Node.js applicability"
+          "description": "EDOT Node.js applicability"
         },
         "edot_php": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot PHP applicability"
+          "description": "EDOT PHP applicability"
         },
         "edot_python": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Python applicability"
+          "description": "EDOT Python applicability"
         },
         "edot_cf_aws": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot CloudFormation AWS applicability"
+          "description": "EDOT CloudFormation AWS applicability"
+        },
+        "edot_cf_azure": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "EDOT CloudFormation AWS applicability"
         },
         "edot_collector": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Collector applicability"
+          "description": "EDOT Collector applicability"
         }
       },
       "additionalProperties": false,
