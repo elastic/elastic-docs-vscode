@@ -30,14 +30,24 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
         
-      - name: Package extension
-        run: vsce package
-        
       - name: Get version from tag
         id: get_version
         run: |
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          
+      - name: Validate version consistency
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION=${{ steps.get_version.outputs.VERSION_NUMBER }}
+          if [ "$PACKAGE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: package.json version ($PACKAGE_VERSION) doesn't match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version validation passed: $PACKAGE_VERSION"
+        
+      - name: Package extension
+        run: vsce package
         
       - name: Generate release notes
         id: release_notes
@@ -54,6 +64,19 @@ jobs:
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          echo "📦 Publishing extension to VS Code Marketplace..."
+          echo "Package: ./elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix"
+          if [ -z "$VSCE_PAT" ]; then
+            echo "❌ Error: VSCE_PAT secret is not set"
+            exit 1
+          fi
+          vsce publish --packagePath ./elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix
+          echo "✅ Successfully published to VS Code Marketplace!"
+        
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:

@@ -1,0 +1,66 @@
+name: Test Package
+
+# This workflow tests the extension packaging without publishing
+# Useful for testing before creating a release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  test-package:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Check copyright headers
+        run: npm run copyright:check
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Compile TypeScript
+        run: npm run compile
+        
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+        
+      - name: Validate extension manifest
+        run: |
+          echo "🔍 Validating extension manifest..."
+          vsce show elastic-docs-v3-utilities --json > /dev/null
+          echo "✅ Manifest validation passed"
+        
+      - name: Test package creation
+        run: |
+          echo "📦 Testing extension packaging..."
+          vsce package --out test-package.vsix
+          echo "✅ Package created successfully"
+          
+      - name: Verify package contents
+        run: |
+          echo "📋 Package details:"
+          ls -lh test-package.vsix
+          echo "🔍 Package contents:"
+          vsce ls
+          
+      - name: Upload test package as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-extension-package
+          path: test-package.vsix
+          retention-days: 7

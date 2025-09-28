@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs V3 Utilities",
   "description": "VSCode extension for Elastic Docs V3 Markdown authoring with directive autocompletion",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "publisher": "elastic",
   "repository": {
     "type": "git",
@@ -57,7 +57,9 @@
     "package": "vsce package",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "copyright:check": "node scripts/check-copyright.js",
+    "copyright:fix": "node scripts/check-copyright.js --fix"
   },
 
   "devDependencies": {

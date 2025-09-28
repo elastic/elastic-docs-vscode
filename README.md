@@ -110,6 +110,15 @@ syntaxes/
 └── elastic-markdown.tmLanguage.json # Syntax highlighting rules
 ```
 
+## Documentation
+
+Additional documentation is available in the [`docs/`](docs/) folder:
+
+- [Marketplace setup guide](docs/marketplace-setup.md) - How to set up VS Code Marketplace publishing
+- [Deployment guide](docs/deployment-guide.md) - How to test and deploy the extension
+- [Copyright guide](docs/copyright-guide.md) - How to manage copyright headers in source files
+- [Example file](docs/example.md) - Example Elastic Docs V3 Markdown file
+
 ## License
 
 See [LICENSE.txt](LICENSE.txt) for details.
