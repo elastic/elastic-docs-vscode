@@ -2,6 +2,8 @@
 
 An extension for Visual Studio Code and compatible IDEs that provides autocompletion for Elastic Docs' Markdown, as well as other features for authoring Elastic Docs authoring.
 
+![vscode-ext](https://github.com/user-attachments/assets/c4ed81f9-9c5d-4e54-af16-857eb8f2bc00)
+
 ## Features
 
 - **Directive autocompletion**: Autocompletes standard and inline directives.
