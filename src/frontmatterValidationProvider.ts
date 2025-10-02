@@ -21,9 +21,20 @@ import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { frontmatterSchema } from './frontmatterSchema';
 
+interface SchemaProperty {
+    type?: string;
+    description?: string;
+    properties?: { [key: string]: SchemaProperty };
+    items?: SchemaProperty;
+    enum?: readonly string[] | string[];
+    $ref?: string;
+    additionalProperties?: boolean | SchemaProperty;
+    [key: string]: unknown;
+}
+
 interface FrontmatterSchema {
-    properties: { [key: string]: any };
-    definitions: { [key: string]: any };
+    properties: { [key: string]: SchemaProperty };
+    definitions: { [key: string]: SchemaProperty };
     metadata: {
         lifecycleStates: {
             values: Array<{ key: string; description: string }>;
@@ -61,7 +72,7 @@ export class FrontmatterValidationProvider {
     private readonly COMMA_SEPARATED_WITH_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?$/;
 
     constructor() {
-        this.schema = frontmatterSchema as any;
+        this.schema = frontmatterSchema as unknown as FrontmatterSchema;
     }
 
     public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
@@ -135,9 +146,9 @@ export class FrontmatterValidationProvider {
         return null;
     }
 
-    private parseYamlForValidation(lines: string[], _startLine: number): any {
-        const result: any = {};
-        const stack: Array<{ obj: any; indent: number }> = [{ obj: result, indent: -1 }];
+    private parseYamlForValidation(lines: string[], _startLine: number): Record<string, unknown> {
+        const result: Record<string, unknown> = {};
+        const stack: Array<{ obj: Record<string, unknown>; indent: number }> = [{ obj: result, indent: -1 }];
         
         outputChannel.appendLine(`[FrontmatterValidation] Starting YAML parsing with ${lines.length} lines`);
         
@@ -182,8 +193,8 @@ export class FrontmatterValidationProvider {
                     for (let j = keys.length - 1; j >= 0; j--) {
                         const key = keys[j];
                         const value = stackFrame.obj[key];
-                        
-                        if (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0) {
+
+                        if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0) {
                             // This empty object should be converted to an array
                             outputChannel.appendLine(`    Converting empty object "${key}" to array`);
                             stackFrame.obj[key] = [];
@@ -204,25 +215,25 @@ export class FrontmatterValidationProvider {
                 
                 outputChannel.appendLine(`    Selected array key: "${arrayKey}"`);
                 
-                if (arrayKey && Array.isArray(arrayParent[arrayKey])) {
+                if (arrayKey && arrayParent && Array.isArray(arrayParent[arrayKey])) {
                     if (itemContent.includes(':')) {
                         // Object in array - parse key-value pairs
-                        const obj: any = {};
+                        const obj: Record<string, unknown> = {};
                         const colonIndex = itemContent.indexOf(':');
                         const objKey = itemContent.substring(0, colonIndex).trim();
                         const objValue = itemContent.substring(colonIndex + 1).trim();
-                        
+
                         if (objValue !== '') {
                             obj[objKey] = this.parseValue(objValue);
                         } else {
                             obj[objKey] = '';
                         }
-                        
-                        arrayParent[arrayKey].push(obj);
+
+                        (arrayParent[arrayKey] as unknown[]).push(obj);
                         stack.push({ obj, indent });
                     } else {
                         // Simple value in array
-                        arrayParent[arrayKey].push(itemContent);
+                        (arrayParent[arrayKey] as unknown[]).push(itemContent);
                     }
                 }
             } else if (trimmed.includes(':')) {
@@ -237,7 +248,7 @@ export class FrontmatterValidationProvider {
                     // Object or array
                     outputChannel.appendLine(`    Creating empty object for key "${key}"`);
                     parent[key] = {};
-                    stack.push({ obj: parent[key], indent });
+                    stack.push({ obj: parent[key] as Record<string, unknown>, indent });
                 } else {
                     // Simple value
                     outputChannel.appendLine(`    Setting "${key}" = "${value}"`);
@@ -249,7 +260,7 @@ export class FrontmatterValidationProvider {
         return result;
     }
 
-    private getLastArrayKey(obj: any): string | null {
+    private getLastArrayKey(obj: Record<string, unknown>): string | null {
         const keys = Object.keys(obj);
         for (let i = keys.length - 1; i >= 0; i--) {
             if (Array.isArray(obj[keys[i]])) {
@@ -259,7 +270,7 @@ export class FrontmatterValidationProvider {
         return null;
     }
 
-    private parseValue(value: string): any {
+    private parseValue(value: string): string | number | boolean | null {
         // Remove quotes
         const unquoted = value.replace(/^["']|["']$/g, '');
         
@@ -273,7 +284,7 @@ export class FrontmatterValidationProvider {
         return unquoted;
     }
 
-    private validateFrontmatterData(data: any, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+    private validateFrontmatterData(data: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
 
         // Check for required fields
         this.validateRequiredFields(data, errors, document, startLine);
@@ -289,12 +300,12 @@ export class FrontmatterValidationProvider {
         }
 
         // Validate products array
-        if (data.products) {
+        if (data.products && Array.isArray(data.products)) {
             this.validateProducts(data.products, errors, document, startLine);
         }
     }
 
-    private validateRequiredFields(data: any, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+    private validateRequiredFields(data: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
         // applies_to is mandatory according to schema
         if (!data.applies_to) {
             const range = new vscode.Range(startLine, 0, startLine, 0);
@@ -307,7 +318,7 @@ export class FrontmatterValidationProvider {
         }
     }
 
-    private validateField(fieldName: string, fieldValue: any, path: string[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+    private validateField(fieldName: string, fieldValue: unknown, path: string[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
 
         const fieldSchema = this.getFieldSchema(fieldName, path);
         if (!fieldSchema) {
@@ -353,7 +364,7 @@ export class FrontmatterValidationProvider {
 
         // Validate enum values
         if (fieldSchema.enum && Array.isArray(fieldSchema.enum)) {
-            if (!fieldSchema.enum.includes(fieldValue)) {
+            if (!fieldSchema.enum.includes(fieldValue as string)) {
                 const valueRange = this.findValueRange(fieldName, document, startLine);
                 if (valueRange) {
                     errors.push({
@@ -380,11 +391,14 @@ export class FrontmatterValidationProvider {
         }
     }
 
-    private validateAppliesTo(appliesTo: any, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+    private validateAppliesTo(appliesTo: unknown, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        if (typeof appliesTo !== 'object' || appliesTo === null) {
+            return;
+        }
 
         const knownKeys = this.schema.metadata.knownKeys.keys;
 
-        for (const [key, value] of Object.entries(appliesTo)) {
+        for (const [key, value] of Object.entries(appliesTo as Record<string, unknown>)) {
             // Validate known keys
             if (!knownKeys.includes(key)) {
                 const keyRange = this.findFieldRange(key, document, startLine);
@@ -498,7 +512,7 @@ export class FrontmatterValidationProvider {
         }
     }
 
-    private validateProducts(products: any[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+    private validateProducts(products: unknown[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
         outputChannel.appendLine(`[FrontmatterValidation] Validating ${products.length} products`);
         
         // Get valid product IDs from schema
@@ -514,8 +528,8 @@ export class FrontmatterValidationProvider {
 
         for (let i = 0; i < products.length; i++) {
             const product = products[i];
-            
-            if (typeof product !== 'object' || !product.id) {
+
+            if (typeof product !== 'object' || product === null || !('id' in product)) {
                 const productRange = this.findArrayItemRange('products', i, document, startLine);
                 if (productRange) {
                     errors.push({
@@ -528,38 +542,41 @@ export class FrontmatterValidationProvider {
                 continue;
             }
 
-            if (!validProductIds.includes(product.id)) {
-                outputChannel.appendLine(`[FrontmatterValidation] Invalid product ID found: '${product.id}' at index ${i}`);
-                
+            const productObj = product as Record<string, unknown>;
+            const productId = productObj.id as string;
+
+            if (!validProductIds.includes(productId)) {
+                outputChannel.appendLine(`[FrontmatterValidation] Invalid product ID found: '${productId}' at index ${i}`);
+
                 // Find the specific id value in the array item
-                const idRange = this.findProductIdRange(product.id, i, document, startLine);
+                const idRange = this.findProductIdRange(productId, i, document, startLine);
                 if (idRange) {
                     outputChannel.appendLine(`[FrontmatterValidation] Found range for invalid product ID: line ${idRange.start.line}, chars ${idRange.start.character}-${idRange.end.character}`);
                     errors.push({
                         range: idRange,
-                        message: `Invalid product ID '${product.id}'. Valid IDs: ${validProductIds.join(', ')}`,
+                        message: `Invalid product ID '${productId}'. Valid IDs: ${validProductIds.join(', ')}`,
                         severity: vscode.DiagnosticSeverity.Error,
                         code: 'invalid_product_id'
                     });
                 } else {
-                    outputChannel.appendLine(`[FrontmatterValidation] Could not find range for invalid product ID: '${product.id}'`);
+                    outputChannel.appendLine(`[FrontmatterValidation] Could not find range for invalid product ID: '${productId}'`);
                 }
             } else {
-                outputChannel.appendLine(`[FrontmatterValidation] Valid product ID: '${product.id}'`);
+                outputChannel.appendLine(`[FrontmatterValidation] Valid product ID: '${productId}'`);
             }
         }
     }
 
-    private getFieldSchema(fieldName: string, path: string[]): any {
-        
+    private getFieldSchema(fieldName: string, path: string[]): SchemaProperty | undefined {
+
         let currentSchema = this.schema.properties;
-        
+
         for (const segment of path) {
             if (currentSchema[segment] && currentSchema[segment].properties) {
-                currentSchema = currentSchema[segment].properties;
+                currentSchema = currentSchema[segment].properties!;
             }
         }
-        
+
         return currentSchema[fieldName];
     }
 

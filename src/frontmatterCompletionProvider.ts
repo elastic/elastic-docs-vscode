@@ -21,9 +21,19 @@ import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { frontmatterSchema } from './frontmatterSchema';
 
+interface SchemaProperty {
+    type?: string;
+    description?: string;
+    properties?: { [key: string]: SchemaProperty };
+    items?: SchemaProperty;
+    enum?: readonly string[] | string[];
+    $ref?: string;
+    [key: string]: unknown;
+}
+
 interface FrontmatterSchema {
-    properties: { [key: string]: any };
-    definitions: { [key: string]: any };
+    properties: { [key: string]: SchemaProperty };
+    definitions: { [key: string]: SchemaProperty };
     metadata: {
         lifecycleStates: {
             values: Array<{ key: string; description: string }>;
@@ -39,7 +49,7 @@ interface FrontmatterContext {
     path: string[];
     currentField?: string;
     parentType?: string;
-    yamlStructure?: any;
+    yamlStructure?: Record<string, unknown>;
 }
 
 export class FrontmatterCompletionProvider implements vscode.CompletionItemProvider {
@@ -48,7 +58,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
     private readonly FRONTMATTER_END = /^---\s*$/;
 
     constructor() {
-        this.schema = frontmatterSchema as any;
+        this.schema = frontmatterSchema as unknown as FrontmatterSchema;
     }
 
     provideCompletionItems(
@@ -114,7 +124,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         outputChannel.appendLine(`[FrontmatterCompletion] Text after: "${textAfter}"`);
         
         // Parse YAML structure up to current position
-        const yamlStructure = this.parsePartialYaml(lines, position.line - 1);
+        // const yamlStructure = this.parsePartialYaml(lines, position.line - 1);
         const path = this.getCurrentPath(lines, position.line - 1, position.character);
         
         outputChannel.appendLine(`[FrontmatterCompletion] Detected path: [${path.join(',')}]`);
@@ -370,9 +380,9 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         return path;
     }
 
-    private parsePartialYaml(_lines: string[], _upToLine: number): any {
+    private parsePartialYaml(_lines: string[], _upToLine: number): Record<string, unknown> {
         // Simple YAML parser for structure analysis
-        const result: any = {};
+        const result: Record<string, unknown> = {};
         // This would need a more sophisticated implementation
         // For now, returning empty object
         return result;
@@ -413,10 +423,9 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         if (path.length === 0) {
             outputChannel.appendLine(`[FrontmatterCompletion] Root level completions`);
             for (const [fieldName, fieldSchema] of Object.entries(this.schema.properties)) {
-                const schema = fieldSchema as any;
                 const item = new vscode.CompletionItem(fieldName, vscode.CompletionItemKind.Field);
-                item.detail = schema.description || `${schema.type} field`;
-                item.documentation = new vscode.MarkdownString(schema.description);
+                item.detail = fieldSchema.description || `${fieldSchema.type || 'unknown'} field`;
+                item.documentation = new vscode.MarkdownString(fieldSchema.description || '');
                 item.insertText = `${fieldName}: `;
                 items.push(item);
                 outputChannel.appendLine(`[FrontmatterCompletion] Added root field: ${fieldName}`);
@@ -441,7 +450,7 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         if (path[0] === 'applies_to') {
             if (path.length === 1) {
                 // Direct children of applies_to
-                const knownKeys = this.schema.metadata.knownKeys.keys;
+                // const knownKeys = this.schema.metadata.knownKeys.keys;
                 const topLevelKeys = ['stack', 'deployment', 'serverless', 'product'];
                 
                 for (const key of topLevelKeys) {
@@ -678,9 +687,9 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         // Get product IDs from schema
         const productsSchema = this.schema.properties.products;
         let productIds: string[] = [];
-        
+
         if (productsSchema && productsSchema.items && productsSchema.items.properties && productsSchema.items.properties.id && productsSchema.items.properties.id.enum) {
-            productIds = productsSchema.items.properties.id.enum;
+            productIds = [...productsSchema.items.properties.id.enum];
             outputChannel.appendLine(`[FrontmatterCompletion] Found ${productIds.length} product IDs in schema: ${productIds.join(', ')}`);
         } else {
             outputChannel.appendLine(`[FrontmatterCompletion] No product IDs found in schema. Schema structure: ${JSON.stringify(productsSchema)}`);
@@ -698,24 +707,24 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
         return items;
     }
 
-    private getFieldSchema(fieldName: string, path: string[]): any {
-        
+    private getFieldSchema(fieldName: string, path: string[]): SchemaProperty | undefined {
+
         // Navigate to the correct schema based on path
         let currentSchema = this.schema.properties;
-        
+
         for (const segment of path) {
             if (currentSchema[segment] && currentSchema[segment].properties) {
-                currentSchema = currentSchema[segment].properties;
+                currentSchema = currentSchema[segment].properties!;
             }
         }
-        
+
         return currentSchema[fieldName];
     }
 
-    private getSchemaAtPath(path: string[]): any {
-        
-        let currentSchema = this.schema;
-        
+    private getSchemaAtPath(path: string[]): SchemaProperty | FrontmatterSchema | null {
+
+        let currentSchema: SchemaProperty | FrontmatterSchema = this.schema;
+
         for (const segment of path) {
             if (currentSchema.properties && currentSchema.properties[segment]) {
                 currentSchema = currentSchema.properties[segment];

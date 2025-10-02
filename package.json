@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs V3 Utilities",
   "description": "VSCode extension for Elastic Docs V3 Markdown authoring with directive autocompletion",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "publisher": "elastic",
   "repository": {
     "type": "git",
