@@ -149,6 +149,10 @@ export const frontmatterSchema = {
           "$ref": "#/definitions/appliesCollection",
           "description": "Elastic Dot CloudFormation AWS applicability"
         },
+        "edot_cf_azure": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Dot CloudFormation Azure applicability"
+        },
         "edot_collector": {
           "$ref": "#/definitions/appliesCollection",
           "description": "Elastic Dot Collector applicability"

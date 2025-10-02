@@ -29,42 +29,42 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
     {
         name: 'note',
         hasArgument: false,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{note}\nThis is a note.\n:::',
         description: 'A relevant piece of information with no serious repercussions if ignored.'
     },
     {
         name: 'warning',
         hasArgument: false,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{warning}\nThis is a warning.\n:::',
         description: 'You could permanently lose data or leak sensitive information.'
     },
     {
         name: 'tip',
         hasArgument: false,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{tip}\nThis is a tip.\n:::',
         description: 'Advice to help users make better choices when using a feature.'
     },
     {
         name: 'important',
         hasArgument: false,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{important}\nThis is an important notice.\n:::',
         description: 'Ignoring this information could impact performance or the stability of your system.'
     },
     {
         name: 'admonition',
         hasArgument: false,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{admonition} Custom Title\nContent here...\n:::',
         description: 'A plain admonition with custom title and no further styling.'
     },
     {
         name: 'dropdown',
         hasArgument: true,
-        parameters: ['open'],
+        parameters: ['open', 'applies_to'],
         template: ':::{dropdown} Dropdown Title\nDropdown content\n:::',
         description: 'Dropdowns allow you to hide and reveal content on user interaction.'
     },
@@ -92,8 +92,8 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
     {
         name: 'carousel',
         hasArgument: false,
-        parameters: ['id', 'fixed-height'],
-        template: '::::{carousel}\n:id: carousel-example\n:fixed-height: small\n\n:::{image} images/example1.png\n:alt: First image\n:title: First image title\n:::\n\n:::{image} images/example2.png\n:alt: Second image\n:title: Second image title\n:::\n\n::::',
+        parameters: ['id', 'max-height'],
+        template: '::::{carousel}\n:id: carousel-example\n:max-height: small\n\n:::{image} images/example1.png\n:alt: First image\n:title: First image title\n:::\n\n:::{image} images/example2.png\n:alt: Second image\n:title: Second image title\n:::\n\n::::',
         description: 'Create an image carousel with multiple images.'
     },
     {
@@ -113,7 +113,7 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
     {
         name: 'tab-set',
         hasArgument: false,
-        parameters: ['group'],
+        parameters: ['group', 'sync'],
         template: '::::{tab-set}\n:group: example-group\n\n:::{tab-item} Tab #1 title\n:sync: tab1\nThis is where the content for tab #1 goes.\n:::\n\n:::{tab-item} Tab #2 title\n:sync: tab2\nThis is where the content for tab #2 goes.\n:::\n\n::::',
         description: 'Create tabbed content with multiple tab items.'
     },
@@ -124,13 +124,36 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
         template: ':::{tab-item} Tab Title\n:sync: tab-id\nTab content goes here.\n:::',
         description: 'A single tab within a tab-set directive.'
     },
+    {
+        name: 'applies-switch',
+        hasArgument: false,
+        parameters: [],
+        template: '::::{applies-switch}\n\n:::{applies-item} stack:\nContent for Stack\n:::\n\n:::{applies-item} serverless:\nContent for Serverless\n:::\n\n::::',
+        description: 'Create tabbed content where each tab displays an applies_to badge instead of text titles.'
+    },
+    {
+        name: 'applies-item',
+        hasArgument: true,
+        parameters: [],
+        template: ':::{applies-item} stack:\nContent for this applicability\n:::',
+        description: 'A single item within an applies-switch directive.'
+    },
+    {
+        name: 'csv-include',
+        hasArgument: true,
+        parameters: ['caption', 'separator'],
+        template: ':::{csv-include} _snippets/sample-data.csv\n:caption: Sample user data from the database\n:::',
+        description: 'Include and render CSV files as formatted tables.'
+    },
 ];
 
 export const PARAMETER_VALUES: { [key: string]: string[] } = {
-    'fixed-height': ['small', 'medium', 'large'],
+    'max-height': ['small', 'medium', 'none'],
     'group': ['languages', 'platforms', 'examples'],
     'sync': ['java', 'golang', 'python', 'javascript', 'curl'],
     'width': ['100px', '200px', '250px', '300px', '400px', '500px', '100%'],
     'height': ['100px', '200px', '300px', '400px', '500px'],
-    'alt': ['Image description', 'Screenshot', 'Diagram', 'Icon']
+    'alt': ['Image description', 'Screenshot', 'Diagram', 'Icon'],
+    'separator': [',', ';', '|', 'tab'],
+    'caption': ['Table caption']
 };
