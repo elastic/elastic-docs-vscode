@@ -55,17 +55,6 @@ The extension supports autocompletion for substitution variables defined in `doc
 
 For detailed development, testing, and deployment instructions, see the **[Deployment Guide](docs/deployment-guide.md)**.
 
-## Documentation
-
-Additional documentation is available:
-
-- **[AGENTS.md](AGENTS.md)** - Comprehensive guide for AI agents and developers
-- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Version history and changelog
-- **[docs/marketplace-setup.md](docs/marketplace-setup.md)** - VS Code Marketplace publishing setup
-- **[docs/deployment-guide.md](docs/deployment-guide.md)** - Testing and deployment guide
-- **[docs/copyright-guide.md](docs/copyright-guide.md)** - Copyright header management
-- **[docs/example.md](docs/example.md)** - Example Elastic Docs V3 Markdown file
-
 ## License
 
 See [LICENSE.txt](LICENSE.txt) for details.
