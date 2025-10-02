@@ -1,6 +1,6 @@
-# Elastic Docs V3 Utilities
+# Elastic Docs extension for Visual Studio Code
 
-A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown authoring with directive support.
+An extension for Visual Studio Code and compatible IDEs that provides autocompletion for Elastic Docs' Markdown, as well as other features for authoring Elastic Docs authoring.
 
 ## Features
 
@@ -17,107 +17,54 @@ A VSCode extension that provides autocompletion for Elastic Docs V3 Markdown aut
 
 ## Supported directives
 
-- `{note}` - Informational notes
-- `{warning}` - Important warnings
-- `{tip}` - Helpful tips
-- `{important}` - Critical information
-- `{admonition}` - Custom callouts
-- `{dropdown}` - Collapsible content sections
-- `{tab-set}` and `{tab-item}` - Tabbed content
+### Admonitions
+- `{note}` - Informational notes (supports `:applies_to:`)
+- `{warning}` - Important warnings (supports `:applies_to:`)
+- `{tip}` - Helpful tips (supports `:applies_to:`)
+- `{important}` - Critical information (supports `:applies_to:`)
+- `{admonition}` - Custom callouts (supports `:applies_to:`)
+
+### Content organization
+- `{dropdown}` - Collapsible content sections (supports `:applies_to:`)
+- `{tab-set}` and `{tab-item}` - Tabbed content (supports `:group:` and `:sync:`)
 - `{stepper}` and `{step}` - Step-by-step guides
+- `{applies-switch}` and `{applies-item}` - Tabbed content with applies_to badges
+
+### Media and visuals
 - `{image}` - Images with alt text and sizing options
-- `{carousel}` - Image carousels
-- `{diagram}` - Various diagram types (mermaid, d2, etc.)
+- `{carousel}` - Image carousels (supports `:max-height:`)
+- `{diagram}` - Various diagram types (mermaid, d2, graphviz, plantuml, etc.)
+
+### Content inclusion
 - `{include}` - Include content from other files
+- `{csv-include}` - Include and render CSV files as formatted tables
 
 ## Substitution Variables
 
 The extension supports autocompletion for substitution variables defined in `docset.yml` files. These variables can be used throughout your markdown files with the `{{variable}}` syntax.
 
-## To do
-
-- Add support for inline applies_to directives
-- Use external JSON data to update extension dynamically
-
 ## Installation
 
-1. Download the latest `.vsix` file from the [Releases](../../releases) page or use the packaged version in this repository
-2. Open VSCode
-3. Press `Ctrl/Cmd+Shift+P` to open Command Palette
-4. Run "Extensions: Install from VSIX..."
-5. Select the downloaded `.vsix` file
+1. Download the latest `.vsix` file from the Releases page.
+2. Open VSCode.
+3. Press `Ctrl/Cmd+Shift+P` to open Command Palette.
+4. Run "Extensions: Install from VSIX...".
+5. Select the downloaded `.vsix` file.
 
 ## Development
 
-### Prerequisites
-
-- Node.js
-- npm
-- VSCode
-
-### Building
-
-```bash
-npm install
-npm run compile
-```
-
-### Packaging
-
-```bash
-npm run package
-```
-
-### Creating a release
-
-To generate a new release with a VSIX package:
-
-1. **Create and push a version tag**:
-   ```bash
-   git tag v1.0.0  # Replace with your version number
-   git push origin v1.0.0
-   ```
-
-2. **Automated release process**: The GitHub workflow (`.github/workflows/release.yml`) will automatically:
-   - Build the extension
-   - Compile TypeScript
-   - Package the extension using `vsce package`
-   - Create a GitHub release with the VSIX file attached
-   - Generate release notes with installation instructions
-
-3. **Manual packaging** (for local testing):
-   ```bash
-   npm install -g @vscode/vsce
-   vsce package
-   ```
-
-The release workflow is triggered by pushing tags that start with `v` (e.g., `v1.0.0`, `v2.1.3`).
-
-### Project structure
-
-```
-src/
-├── extension.ts                    # Main extension entry point
-├── directiveCompletionProvider.ts  # Handles ::: completion
-├── parameterCompletionProvider.ts  # Handles parameter completion
-├── roleCompletionProvider.ts       # Handles {icon} and {kbd} completion
-├── substitutionCompletionProvider.ts # Handles {{ substitution completion
-├── substitutionHoverProvider.ts    # Handles hover tooltips for substitutions
-├── directiveDiagnosticProvider.ts  # Handles malformed directive detection
-└── directives.ts                   # Directive definitions and templates
-
-syntaxes/
-└── elastic-markdown.tmLanguage.json # Syntax highlighting rules
-```
+For detailed development, testing, and deployment instructions, see the **[Deployment Guide](docs/deployment-guide.md)**.
 
 ## Documentation
 
-Additional documentation is available in the [`docs/`](docs/) folder:
+Additional documentation is available:
 
-- [Marketplace setup guide](docs/marketplace-setup.md) - How to set up VS Code Marketplace publishing
-- [Deployment guide](docs/deployment-guide.md) - How to test and deploy the extension
-- [Copyright guide](docs/copyright-guide.md) - How to manage copyright headers in source files
-- [Example file](docs/example.md) - Example Elastic Docs V3 Markdown file
+- **[AGENTS.md](AGENTS.md)** - Comprehensive guide for AI agents and developers
+- **[RELEASE_NOTES.md](RELEASE_NOTES.md)** - Version history and changelog
+- **[docs/marketplace-setup.md](docs/marketplace-setup.md)** - VS Code Marketplace publishing setup
+- **[docs/deployment-guide.md](docs/deployment-guide.md)** - Testing and deployment guide
+- **[docs/copyright-guide.md](docs/copyright-guide.md)** - Copyright header management
+- **[docs/example.md](docs/example.md)** - Example Elastic Docs V3 Markdown file
 
 ## License
 
