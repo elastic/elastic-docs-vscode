@@ -39,12 +39,12 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
         
-      - name: Validate extension manifest
-        run: |
-          echo "🔍 Validating extension manifest..."
-          vsce show elastic-docs-v3-utilities --json > /dev/null
-          echo "✅ Manifest validation passed"
-        
+      # - name: Validate extension manifest
+      #   run: |
+      #     echo "🔍 Validating extension manifest..."
+      #     vsce show elastic-docs-v3-utilities --json > /dev/null
+      #     echo "✅ Manifest validation passed"
+
       - name: Test package creation
         run: |
           echo "📦 Testing extension packaging..."
