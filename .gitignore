@@ -4,6 +4,9 @@
 *.js
 *.js.map
 
+# But include scripts
+!scripts/**/*.js
+
 # Dependencies
 node_modules/
 node_modules
