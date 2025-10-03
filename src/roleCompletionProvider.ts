@@ -27,6 +27,23 @@ export const KEYBOARD_SHORTCUTS = [
     'shift', 'ctrl', 'alt', 'option', 'cmd', 'win', 'up', 'down', 'left', 'right', 'space', 'tab', 'enter', 'esc', 'backspace', 'del', 'ins', 'pageup', 'pagedown', 'home', 'end', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12', 'plus', 'fn', 'pipe'
 ];
 
+export const APPLIES_TO_KEYS = [
+    'stack', 'deployment', 'serverless', 'product',
+    'ece', 'eck', 'ess', 'self',
+    'elasticsearch', 'observability', 'security',
+    'ecctl', 'curator',
+    'apm_agent_android', 'apm_agent_dotnet', 'apm_agent_go', 'apm_agent_ios',
+    'apm_agent_java', 'apm_agent_node', 'apm_agent_php', 'apm_agent_python',
+    'apm_agent_ruby', 'apm_agent_rum',
+    'edot_ios', 'edot_android', 'edot_dotnet', 'edot_java', 'edot_node',
+    'edot_php', 'edot_python', 'edot_cf_aws', 'edot_cf_azure', 'edot_collector'
+];
+
+export const LIFECYCLE_STATES = [
+    'ga', 'preview', 'beta', 'deprecated', 'removed',
+    'unavailable', 'planned', 'development', 'discontinued'
+];
+
 export class RoleCompletionProvider implements vscode.CompletionItemProvider {
     provideCompletionItems(
         document: vscode.TextDocument,
@@ -42,19 +59,26 @@ export class RoleCompletionProvider implements vscode.CompletionItemProvider {
         if (textBefore.endsWith('{icon}`')) {
             return this.getIconCompletions();
         }
-        
+
         // Check for {kbd}` pattern
         if (textBefore.endsWith('{kbd}`')) {
             return this.getKeyboardCompletions();
         }
-        
-        // Check for incomplete {icon or {kbd
-        if (textBefore.match(/\{(icon|kbd)$/)) {
-            const roleType = textBefore.match(/\{(icon|kbd)$/)?.[1];
+
+        // Check for {applies_to}` pattern
+        if (textBefore.endsWith('{applies_to}`')) {
+            return this.getAppliesToCompletions();
+        }
+
+        // Check for incomplete {icon, {kbd, or {applies_to
+        if (textBefore.match(/\{(icon|kbd|applies_to)$/)) {
+            const roleType = textBefore.match(/\{(icon|kbd|applies_to)$/)?.[1];
             if (roleType === 'icon') {
                 return this.getRoleCompletion('icon', 'Insert icon role');
             } else if (roleType === 'kbd') {
                 return this.getRoleCompletion('kbd', 'Insert keyboard shortcut role');
+            } else if (roleType === 'applies_to') {
+                return this.getRoleCompletion('applies_to', 'Insert applies_to role');
             }
         }
             
@@ -70,12 +94,18 @@ export class RoleCompletionProvider implements vscode.CompletionItemProvider {
             `{${roleType}}`,
             vscode.CompletionItemKind.Function
         );
-        
-        const sampleValue = roleType === 'icon' ? 'check' : 'enter';
+
+        let sampleValue = 'enter';
+        if (roleType === 'icon') {
+            sampleValue = 'check';
+        } else if (roleType === 'applies_to') {
+            sampleValue = 'stack: ga 9.0';
+        }
+
         item.insertText = new vscode.SnippetString(`{${roleType}}\`\${1:${sampleValue}}\``);
         item.detail = description;
         item.documentation = new vscode.MarkdownString(`Insert ${roleType} role with sample value`);
-        
+
         return [item];
     }
     
@@ -131,6 +161,54 @@ export class RoleCompletionProvider implements vscode.CompletionItemProvider {
             completions.push(item);
         });
         
+        return completions;
+    }
+
+    private getAppliesToCompletions(): vscode.CompletionItem[] {
+        const completions: vscode.CompletionItem[] = [];
+
+        // Add product/deployment keys with lifecycle states
+        APPLIES_TO_KEYS.forEach(key => {
+            LIFECYCLE_STATES.forEach(state => {
+                const item = new vscode.CompletionItem(
+                    `${key}: ${state}`,
+                    vscode.CompletionItemKind.Value
+                );
+
+                item.insertText = `${key}: ${state}`;
+                item.detail = `${key} - ${state}`;
+                item.documentation = new vscode.MarkdownString(`Insert \`${key}: ${state}\` applies_to value`);
+                item.sortText = `1-${key}-${state}`;
+
+                completions.push(item);
+            });
+        });
+
+        // Add common patterns with version numbers
+        const commonPatterns = [
+            'stack: ga 9.0',
+            'stack: ga 9.1',
+            'stack: preview 9.0',
+            'serverless: ga',
+            'deployment: { ess: ga, ece: ga }',
+            'edot_collector: ga 9.2',
+            'edot_java: ga 1.0'
+        ];
+
+        commonPatterns.forEach(pattern => {
+            const item = new vscode.CompletionItem(
+                pattern,
+                vscode.CompletionItemKind.Snippet
+            );
+
+            item.insertText = pattern;
+            item.detail = 'Common pattern';
+            item.documentation = new vscode.MarkdownString(`Insert common applies_to pattern: \`${pattern}\``);
+            item.sortText = `0-${pattern}`;
+
+            completions.push(item);
+        });
+
         return completions;
     }
 }

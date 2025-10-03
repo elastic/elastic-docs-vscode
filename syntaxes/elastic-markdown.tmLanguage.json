@@ -102,6 +102,30 @@
               "name": "markup.role.punctuation.elastic"
             }
           }
+        },
+        {
+          "name": "markup.role.applies_to.elastic",
+          "match": "(\\{)(applies_to)(\\})(`)([^`]+)(`)",
+          "captures": {
+            "1": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "2": {
+              "name": "markup.role.name.elastic"
+            },
+            "3": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "4": {
+              "name": "markup.role.punctuation.elastic"
+            },
+            "5": {
+              "name": "markup.role.content.elastic"
+            },
+            "6": {
+              "name": "markup.role.punctuation.elastic"
+            }
+          }
         }
       ]
     },

@@ -4,11 +4,11 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 
 ## Features
 
-- **Directive autocompletion**: Autocompletes standard and inline directives.
-- **Frontmatter autocompletion**: Autocompletes frontmatter fields.
-- **Frontmatter validation**: Validates frontmatter fields.
-- **Settings autocomplete**: Type : inside a directive to see suggested options.
-- **Icon and kbd completion**: Use `{icon}` and `{kbd}` with autocompletion
+- **Directive autocompletion**: Autocompletes standard and inline directives
+- **Frontmatter autocompletion**: Autocompletes frontmatter fields
+- **Frontmatter validation**: Validates frontmatter fields
+- **Settings autocomplete**: Type `:` inside a directive to see suggested options
+- **Inline role completion**: Use `{icon}`, `{kbd}`, and `{applies_to}` with autocompletion
 - **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files
 - **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values
 - **Enhanced completion tooltips**: See full variable values when selecting from autocompletion
