@@ -57,7 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register completion providers for markdown files
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             directiveProvider,
             ':', '{'
         )
@@ -65,7 +65,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             parameterProvider,
             ':'
         )
@@ -73,7 +73,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             roleProvider,
             '{', '`'
         )
@@ -81,7 +81,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             substitutionProvider,
             '{'
         )
@@ -91,7 +91,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register hover provider for substitution variables
     context.subscriptions.push(
         vscode.languages.registerHoverProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             substitutionHoverProvider
         )
     );
@@ -101,7 +101,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Trigger on colon for values, space after colon, and other key characters
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(
-            { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             frontmatterProvider,
             ':', ' ', '-' // Colon triggers value completion, space triggers after colon, dash for arrays
         )
