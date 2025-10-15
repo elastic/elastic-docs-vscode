@@ -45,28 +45,27 @@ export class SubstitutionValidationProvider {
     }
 
     private validateContent(errors: ValidationError[], document: vscode.TextDocument): void {
-        const lines = document.getText().split('\n')
+        const lines = document.getText().split('\n');
         const substitutions = getSubstitutions(document.uri);
+        const escapeRegExp = (text: string): string => {
+            return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        };
         for (const [i, line] of lines.entries()) {
           for (const [key, value] of Object.entries(substitutions)) {
-            const regex = new RegExp(`(\\W|^)${value}(\\W|$)`, 'gm')
-            const matches = line.match(regex)
-            if (matches) {
-              for (const match of matches) {
-                const lineNumber = i
-                const startChar = line.indexOf(match) > 0
-                  ? line.indexOf(match) + 1
-                  : 0
-                const endChar = startChar + value.length
-                const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
-                if (!errors.find(err => err.range.contains(range))) {
-                  errors.push({
-                    range,
-                    message: `Use substitute \`{{${key}}}\` instead of \`${value}\``,
-                    severity: vscode.DiagnosticSeverity.Warning,
-                    code: 'use_sub'
-                  });
-                }
+            const regex = new RegExp(`(\\W|^)${escapeRegExp(value)}(\\W|$)`, 'gm');
+            let match;
+            while ((match = regex.exec(line)) !== null) {
+              const lineNumber = i;
+              const startChar = match.index + (match[1] ? match[1].length : 0);
+              const endChar = startChar + value.length;
+              const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
+              if (!errors.find(err => err.range.contains(range))) {
+                errors.push({
+                  range,
+                  message: `Use substitute \`{{${key}}}\` instead of \`${value}\``,
+                  severity: vscode.DiagnosticSeverity.Warning,
+                  code: 'use_sub'
+                });
               }
             }
           }

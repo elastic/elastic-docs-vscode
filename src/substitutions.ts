@@ -54,8 +54,9 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
 
       for (const docsetFile of docsetFiles) {
           const unorderedSubs = parseDocsetFile(docsetFile);
+          const productValues = Object.values(PRODUCTS);
           const filteredSubs = Object.keys(unorderedSubs).filter(sub => {
-            return !Object.values(PRODUCTS).includes(unorderedSubs[sub])
+            return !productValues.includes(unorderedSubs[sub]);
           }).reduce(
               (obj: { [key: string]: string }, key: string) => {
                   obj[key] = unorderedSubs[key];
@@ -173,8 +174,7 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
       let currentIndent = 0;
 
 
-      for (let i = 0; i < lines.length; i++) {
-          const line = lines[i];
+      for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || trimmed.startsWith('#')) continue;
 
