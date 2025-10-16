@@ -26,6 +26,7 @@ import { SubstitutionCompletionProvider } from './substitutionCompletionProvider
 import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 import { FrontmatterCompletionProvider } from './frontmatterCompletionProvider';
 import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
+import { SubstitutionValidationProvider } from './substitutionValidationProvider';
 
 import { outputChannel } from './logger';
 
@@ -33,15 +34,15 @@ export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
     outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
     outputChannel.appendLine('Registering completion providers...');
-    
+
     // Apply color customizations programmatically
     applyColorCustomizations();
-    
+
     // Test grammar loading
     testGrammarLoading();
-    
+
     // Ensure we're working with markdown files and handle potential conflicts
-    
+
     // Note: getLanguages() is async, but we'll proceed without this check
     // as the extension should work fine even if markdown support is loaded later
 
@@ -53,6 +54,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const substitutionHoverProvider = new SubstitutionHoverProvider();
     const frontmatterProvider = new FrontmatterCompletionProvider();
     const frontmatterValidator = new FrontmatterValidationProvider();
+    const substitutionValidator = new SubstitutionValidationProvider();
 
     // Register completion providers for markdown files
     context.subscriptions.push(
@@ -111,34 +113,39 @@ export function activate(context: vscode.ExtensionContext): void {
     // Register diagnostic providers
     const diagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-directives');
     const frontmatterDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-frontmatter');
+    const substitutionDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-substitution');
     context.subscriptions.push(diagnosticCollection);
     context.subscriptions.push(frontmatterDiagnosticCollection);
-    
+    context.subscriptions.push(substitutionDiagnosticCollection);
+
     // Update diagnostics when document changes
     const updateDiagnostics = (document: vscode.TextDocument): void => {
         if (document.languageId === 'markdown') {
             // Directive diagnostics
             const diagnostics = diagnosticProvider.provideDiagnostics(document);
             diagnosticCollection.set(document.uri, diagnostics);
-            
+
             // Frontmatter diagnostics
             const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
             frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+            // Substitution diagnostics
+            const substitutionDiagnostics = substitutionValidator.validateDocument(document);
+            substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
         }
     };
-    
+
     // Initial diagnostics
     if (vscode.window.activeTextEditor) {
         updateDiagnostics(vscode.window.activeTextEditor.document);
     }
-    
+
     // Listen for document changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => {
             updateDiagnostics(event.document);
         })
     );
-    
+
     // Listen for document opens
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => {
@@ -150,9 +157,11 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
             if (document.languageId === 'markdown') {
-                // Re-run frontmatter validation on save
+                // Re-run validation on save
                 const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
                 frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+                const substitutionDiagnostics = substitutionValidator.validateDocument(document);
+                substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
             }
         })
     );
@@ -184,13 +193,13 @@ export function activate(context: vscode.ExtensionContext): void {
 
             const position = editor.selection.active;
             const line = editor.document.lineAt(position.line);
-            
+
             // Replace the entire line with the template
             const range = new vscode.Range(
                 new vscode.Position(position.line, 0),
                 new vscode.Position(position.line, line.text.length)
             );
-            
+
             editor.edit(editBuilder => {
                 editBuilder.replace(range, template);
             });
@@ -211,7 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
 function applyColorCustomizations(): void {
     const config = vscode.workspace.getConfiguration('editor');
     const currentCustomizations = config.get('tokenColorCustomizations') as Record<string, unknown> || {};
-    
+
     // Define our custom color rules
     const elasticRules = [
         {
@@ -276,11 +285,11 @@ function applyColorCustomizations(): void {
             }
         }
     ];
-    
+
     // Merge with existing rules
     const existingRules = (currentCustomizations.textMateRules as unknown[]) || [];
     const newRules = [...existingRules, ...elasticRules];
-    
+
     // Apply the customizations
     config.update('tokenColorCustomizations', {
         ...currentCustomizations,
@@ -294,12 +303,12 @@ function testGrammarLoading(): void {
         const activeEditor = vscode.window.activeTextEditor;
         if (activeEditor && activeEditor.document.languageId === 'markdown') {
             outputChannel.appendLine('Elastic Docs V3: Testing grammar on active markdown file');
-            
+
             // Check if our scopes are being applied
             const document = activeEditor.document;
             const position = new vscode.Position(0, 0);
             const token = document.getWordRangeAtPosition(position);
-            
+
             if (token) {
                 const tokens = document.getText(token);
                 outputChannel.appendLine(`Elastic Docs V3: Found tokens at start: ${tokens}`);
