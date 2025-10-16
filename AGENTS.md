@@ -11,15 +11,16 @@ This document provides comprehensive instructions for AI agents to understand, d
 
 ### Core functionality
 
-The extension provides 8 primary features:
+The extension provides 9 primary features:
 1. **Directive autocompletion** - `:::{directive}` blocks
 2. **Parameter autocompletion** - Parameters within directives  
-3. **Role autocompletion** - `{icon}` and `{kbd}` inline roles
+3. **Role autocompletion** - `{icon}`, `{kbd}`, and `{applies_to}` inline roles
 4. **Substitution autocompletion** - `{{variable}}` from docset.yml files
 5. **Frontmatter autocompletion** - YAML frontmatter field completion
-6. **Validation & diagnostics** - Real-time error detection
+6. **Validation & diagnostics** - Real-time error detection for directives, frontmatter, and substitutions
 7. **Hover tooltips** - Variable value previews
 8. **Syntax highlighting** - Enhanced highlighting via grammar injection
+9. **Substitution validation** - Warns when literal values should be replaced with substitution variables
 
 ## Architecture & file structure
 
@@ -30,13 +31,17 @@ src/
 ├── directives.ts                    # Directive definitions & templates
 ├── directiveCompletionProvider.ts   # Handles :::{directive} completion
 ├── parameterCompletionProvider.ts   # Handles :parameter completion inside directives
-├── roleCompletionProvider.ts        # Handles {icon} and {kbd} role completion
+├── roleCompletionProvider.ts        # Handles {icon}, {kbd}, and {applies_to} role completion
 ├── substitutionCompletionProvider.ts # Handles {{variable}} completion
 ├── substitutionHoverProvider.ts     # Provides hover tooltips for variables
+├── substitutionValidationProvider.ts # Validates substitution usage and suggests improvements
 ├── frontmatterCompletionProvider.ts # Handles YAML frontmatter completion
 ├── frontmatterValidationProvider.ts # Validates frontmatter against schema
 ├── directiveDiagnosticProvider.ts   # Validates directive syntax
+├── frontmatterSchema.ts             # TypeScript schema definitions for frontmatter
 ├── frontmatter-schema.json          # JSON schema for frontmatter validation
+├── substitutions.ts                 # Substitution variable parsing and caching utilities
+├── products.ts                      # Product definitions and mappings
 └── logger.ts                        # Centralized logging utilities
 
 syntaxes/
@@ -86,13 +91,21 @@ All providers are registered in `src/extension.ts` using `vscode.languages.regis
 ### 3. RoleCompletionProvider
 **File**: `src/roleCompletionProvider.ts`  
 **Triggers**: `{`, `` ` `` characters  
-**Purpose**: Completes inline roles like `{icon}` and `{kbd}`
+**Purpose**: Completes inline roles like `{icon}`, `{kbd}`, and `{applies_to}`
 
 **How it works**:
-- Detects patterns like `{icon}` or `{kbd}`
-- For `{icon}` - provides icon name completions
-- For `{kbd}` - provides keyboard shortcut suggestions
+- Detects patterns like `{icon}`, `{kbd}`, or `{applies_to}`
+- For `{icon}` - provides comprehensive icon name completions from Elastic's icon set
+- For `{kbd}` - provides keyboard shortcut suggestions and common combinations
+- For `{applies_to}` - provides product/deployment keys with lifecycle states and common patterns
 - Handles both complete role insertion and value completion
+- Supports complex applies_to patterns with version numbers and nested objects
+
+**Key features**:
+- 200+ predefined icons from Elastic's design system
+- Keyboard shortcuts including common combinations (cmd+c, ctrl+v, etc.)
+- Applies_to completion with lifecycle states (ga, preview, beta, deprecated, etc.)
+- Product-specific completion for APM agents, EDOT components, and deployment models
 
 ### 4. SubstitutionCompletionProvider
 **File**: `src/substitutionCompletionProvider.ts`  
@@ -112,7 +125,24 @@ All providers are registered in `src/extension.ts` using `vscode.languages.regis
 - Value preview in completion items
 - YAML parsing error handling
 
-### 5. FrontmatterCompletionProvider
+### 5. SubstitutionValidationProvider
+**File**: `src/substitutionValidationProvider.ts`  
+**Purpose**: Validates substitution usage and suggests improvements
+
+**How it works**:
+- Scans document content for literal values that match substitution variables
+- Compares found values against available substitutions from docset.yml files
+- Provides warnings when literal values should be replaced with `{{variable}}` syntax
+- Uses regex matching to detect values in context (word boundaries)
+- Prevents duplicate warnings for overlapping matches
+
+**Key features**:
+- Real-time validation as user types
+- Context-aware detection (respects word boundaries)
+- Integration with VS Code diagnostics system
+- Performance optimized with caching
+
+### 6. FrontmatterCompletionProvider
 **File**: `src/frontmatterCompletionProvider.ts`  
 **Triggers**: `:`, ` `, `-` characters  
 **Purpose**: Completes YAML frontmatter fields
@@ -129,7 +159,7 @@ All providers are registered in `src/extension.ts` using `vscode.languages.regis
 - Includes field descriptions, types, and allowed values
 - Supports complex structures like `applies_to` with product/version matrices
 
-### 6. FrontmatterValidationProvider & DirectiveDiagnosticProvider
+### 7. FrontmatterValidationProvider & DirectiveDiagnosticProvider
 **Files**: `src/frontmatterValidationProvider.ts`, `src/directiveDiagnosticProvider.ts`  
 **Purpose**: Real-time validation with error highlighting
 
@@ -155,7 +185,39 @@ export interface DirectiveDefinition {
 ```
 
 ### Frontmatter schema
+**File**: `src/frontmatterSchema.ts`  
+- TypeScript-based schema definitions with comprehensive type safety
+- Complete JSON Schema Draft 7 specification embedded as const
+- 600+ lines covering all Elastic docs frontmatter fields
+- Includes `applies_to` product/version matrix with lifecycle states
+- Field descriptions, types, and allowed values
+- Support for complex structures like deployment applicability and serverless projects
+
+### Product definitions
+**File**: `src/products.ts`  
+- Centralized product mapping with 90+ Elastic products
+- Maps product IDs to display names (e.g., 'apm' → 'APM')
+- Includes APM agents, EDOT components, cloud services, and tools
+- Used for frontmatter completion and substitution filtering
+
+### Substitution utilities
+**File**: `src/substitutions.ts`  
+- YAML parsing utilities for docset.yml files
+- Caching system for performance optimization
+- Multi-file docset support with hierarchical resolution
+- Product filtering to avoid circular references
+- Ordered substitution variables by value length
+
+### Role completion constants
+**File**: `src/roleCompletionProvider.ts`  
+- `ICONS`: 200+ predefined icons from Elastic's design system
+- `KEYBOARD_SHORTCUTS`: Common keyboard keys and combinations
+- `APPLIES_TO_KEYS`: Product and deployment keys for applies_to completion
+- `LIFECYCLE_STATES`: Valid lifecycle states (ga, preview, beta, deprecated, etc.)
+
+### Frontmatter schema (JSON)
 **File**: `src/frontmatter-schema.json`  
+- Legacy JSON schema file (being phased out in favor of TypeScript schema)
 - Complete JSON Schema Draft 7 specification
 - 600+ lines covering all Elastic docs frontmatter fields
 - Includes `applies_to` product/version matrix
@@ -185,16 +247,28 @@ export class ExampleProvider implements vscode.CompletionItemProvider {
 }
 ```
 
+Validation providers implement custom validation logic:
+```typescript
+export class ExampleValidationProvider {
+    public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
+        // Validation logic returning diagnostic errors/warnings
+    }
+}
+```
+
 ### Error handling
 - Always wrap provider logic in try-catch blocks
 - Return empty arrays on errors to avoid breaking editor
 - Use centralized logging via `logger.ts`
+- Validation providers should gracefully handle parsing errors
 
 ### Performance considerations
-- Cache expensive operations (YAML parsing, file scanning)
+- Cache expensive operations (YAML parsing, file scanning, regex matching)
 - Use early returns for non-matching contexts
-- Debounce diagnostic updates
-- Limit completion item counts for large datasets
+- Debounce diagnostic updates to avoid excessive validation
+- Limit completion item counts for large datasets (e.g., 200+ icons)
+- Implement cache invalidation for docset.yml file changes
+- Use workspace file watchers for cache management
 
 ### Text pattern matching
 Common patterns used throughout:
@@ -207,6 +281,12 @@ const isInFrontmatter = document.getText().startsWith('---');
 
 // Substitution detection
 const substitutionMatch = textBefore.match(/\{\{([^}]*)$/);
+
+// Role completion detection
+const roleMatch = textBefore.match(/\{(icon|kbd|applies_to)$/);
+
+// Applies_to pattern validation
+const appliesToPattern = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\s+[0-9]+(\.[0-9]+)*$/;
 ```
 
 ### Copyright headers
@@ -254,26 +334,79 @@ Use `npm run copyright:check` and `npm run copyright:fix` to manage headers.
 const newProvider = new NewFeatureProvider();
 context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider(
-        { scheme: 'file', language: 'markdown', pattern: '**/*.md' },
+        { scheme: '*', language: 'markdown', pattern: '**/*.md' },
         newProvider,
         'trigger1', 'trigger2'
     )
 );
 ```
 
+### Adding a new validation provider
+
+1. **Create validation file**: `src/newValidationProvider.ts`
+2. **Implement validation logic**:
+```typescript
+export class NewValidationProvider {
+    public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
+        const errors: ValidationError[] = [];
+        // Add validation logic here
+        return errors.map(error => new vscode.Diagnostic(error.range, error.message, error.severity));
+    }
+}
+```
+3. **Register in extension.ts**:
+```typescript
+const newValidator = new NewValidationProvider();
+const diagnosticCollection = vscode.languages.createDiagnosticCollection('new-feature');
+context.subscriptions.push(diagnosticCollection);
+
+// Add to updateDiagnostics function
+const newDiagnostics = newValidator.validateDocument(document);
+diagnosticCollection.set(document.uri, newDiagnostics);
+```
+
 ### Adding frontmatter fields
 
-1. **Update schema**: Modify `src/frontmatter-schema.json`
+1. **Update TypeScript schema**: Modify `src/frontmatterSchema.ts`
 2. **Add to properties object**:
-```json
+```typescript
 "new_field": {
     "type": "string",
     "description": "Description of the new field",
     "enum": ["value1", "value2"]
 }
 ```
+3. **Update legacy JSON schema** (if still needed): Modify `src/frontmatter-schema.json`
+4. **The completion provider automatically picks up schema changes**
 
-3. **The completion provider automatically picks up schema changes**
+### Adding new role completions
+
+**For icons**: Edit `src/roleCompletionProvider.ts`, update `ICONS` constant:
+```typescript
+export const ICONS = [
+    'existing_icon',
+    'new_icon', // Add new icons here
+    // ... rest of icons
+];
+```
+
+**For keyboard shortcuts**: Update `KEYBOARD_SHORTCUTS` constant:
+```typescript
+export const KEYBOARD_SHORTCUTS = [
+    'existing_key',
+    'new_key', // Add new keys here
+    // ... rest of keys
+];
+```
+
+**For applies_to keys**: Update `APPLIES_TO_KEYS` constant:
+```typescript
+export const APPLIES_TO_KEYS = [
+    'existing_key',
+    'new_product_key', // Add new product/deployment keys here
+    // ... rest of keys
+];
+```
 
 ## Testing & debugging
 
@@ -340,31 +473,45 @@ code --install-extension elastic-docs-v3-utilities-*.vsix
 ## Common development tasks
 
 ### Adding new icon completions
-Edit `src/roleCompletionProvider.ts`, update `getIconCompletions()` method:
+Edit `src/roleCompletionProvider.ts`, update `ICONS` constant:
 ```typescript
-const iconCompletions = [
-    { name: 'check', description: 'Checkmark icon' },
-    // Add new icons here
+export const ICONS = [
+    'check', 'warning', 'info',
+    'new_icon', // Add new icons here
+    // ... rest of icons
 ];
 ```
 
 ### Adding new substitution sources
-Modify `src/substitutionCompletionProvider.ts`:
+Modify `src/substitutions.ts`:
 - Update `findDocsetFiles()` for new file patterns
 - Modify `parseDocsetFile()` for new YAML structures
 - Extend `getSubstitutions()` for additional variable sources
+- Update product filtering logic in `products.ts`
+
+### Adding new products
+Edit `src/products.ts`, update `PRODUCTS` constant:
+```typescript
+export const PRODUCTS: Record<string, string> = {
+    'existing_product': 'Existing Product',
+    'new_product': 'New Product', // Add new products here
+    // ... rest of products
+};
+```
 
 ### Extending validation rules
 Update diagnostic providers:
 - `src/directiveDiagnosticProvider.ts` for directive validation
 - `src/frontmatterValidationProvider.ts` for frontmatter validation
+- `src/substitutionValidationProvider.ts` for substitution validation
 - Add new error types and detection logic
 
 ### Performance optimization
 - Profile completion providers during development
-- Cache expensive operations (file parsing, regex matches)
+- Cache expensive operations (file parsing, regex matches, YAML parsing)
 - Use workspace file watchers for cache invalidation
-- Limit completion results for large datasets
+- Limit completion results for large datasets (icons, products)
+- Implement debouncing for validation providers
 
 ## Troubleshooting
 
@@ -399,3 +546,19 @@ Key configuration sections:
 - `engines.vscode`: Minimum VS Code version
 
 This guide should provide all the necessary information for understanding and extending the Elastic Docs V3 VS Code extension. Focus on the provider pattern, understand the data structures, and follow the established conventions for consistency.
+
+## Recent architecture updates
+
+### Version 0.9.0+ Changes
+- **Enhanced role completion**: Added `{applies_to}` role support with comprehensive product/deployment key completion
+- **Substitution validation**: New validation provider that warns when literal values should be replaced with substitution variables
+- **TypeScript schema**: Migrated from JSON schema to TypeScript-based schema definitions in `frontmatterSchema.ts`
+- **Centralized constants**: Moved icon definitions, keyboard shortcuts, and product mappings to dedicated constant files
+- **Improved caching**: Enhanced substitution parsing with better caching and performance optimization
+- **Product filtering**: Added intelligent filtering to prevent circular references in substitution variables
+
+### Key architectural improvements
+- **Separation of concerns**: Validation logic separated into dedicated providers
+- **Type safety**: TypeScript schemas provide better type checking and IDE support
+- **Performance**: Caching and debouncing reduce computational overhead
+- **Extensibility**: Modular design makes it easier to add new completion types and validation rules

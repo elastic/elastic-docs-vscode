@@ -6,16 +6,35 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 
 ## Features
 
-- **Directive autocompletion**: Autocompletes standard and inline directives
-- **Frontmatter autocompletion**: Autocompletes frontmatter fields
-- **Frontmatter validation**: Validates frontmatter fields
-- **Settings autocomplete**: Type `:` inside a directive to see suggested options
-- **Inline role completion**: Use `{icon}`, `{kbd}`, and `{applies_to}` with autocompletion
-- **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files
-- **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values
-- **Enhanced completion tooltips**: See full variable values when selecting from autocompletion
-- **Validates directive syntax**: Real-time validation with red underlines and hover cards for errors
-- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, and substitution variables that works alongside standard Markdown highlighting
+### Autocompletion
+- **Directive autocompletion**: Autocompletes standard and inline directives.
+- **Frontmatter autocompletion**: Autocompletes frontmatter fields.
+- **Settings autocomplete**: Enter `:` inside a directive to view suggested settings.
+- **Inline role completion**: Use `{icon}`, `{kbd}`, and `{applies_to}` with autocompletion.
+- **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files.
+
+### Validation and diagnostics
+- **Frontmatter validation**: Validates frontmatter fields against schema.
+- **Directive syntax validation**: Real-time validation with red underlines and hover cards for errors.
+- **Substitution validation**: Warns when literal values should be replaced with substitution variables.
+
+### Enhanced user experience
+- **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values.
+- **Enhanced completion tooltips**: Get full variable values when selecting from autocompletion.
+- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, and substitution variables that works alongside standard Markdown highlighting.
+
+## Inline roles
+
+The extension provides autocompletion for several inline roles:
+
+### Icon roles
+Use `{icon}` to insert icons from Elastic's design system. Type `{icon}` followed by a backtick to see available icons.
+
+### Keyboard shortcuts
+Use `{kbd}` to format keyboard shortcuts. Type `{kbd}` followed by a backtick to see common keys and combinations.
+
+### Applies-to roles
+Use `{applies_to}` to specify product or deployment applicability. Type `{applies_to}` followed by a backtick to see available product keys and lifecycle states.
 
 ## Supported directives
 
@@ -41,22 +60,39 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - `{include}` - Include content from other files
 - `{csv-include}` - Include and render CSV files as formatted tables
 
-## Substitution Variables
+## Substitution variables
 
 The extension supports autocompletion for substitution variables defined in `docset.yml` files. These variables can be used throughout your markdown files with the `{{variable}}` syntax.
+
+### Substitution validation
+
+The extension automatically detects when you're using literal values that can be replaced with substitution variables. For example, if you have a substitution variable `{{product.apm}}` defined in your `docset.yml` file with the value "APM", the extension shows a warning when you type "APM" directly in your content, suggesting you use `{{product.apm}}` instead.
+
+This helps maintain consistency across your documentation and makes it easier to update product names and other values globally.
+
+## Quick start
+
+1. **Install the extension** using the steps in the Installation section below.
+2. **Open a Markdown file** in VS Code.
+3. **Try the features**:
+   - Type `:::` to see directive completions
+   - Type `{icon}` followed by a backtick to see icon options
+   - Type `{{` to see substitution variables
+   - Add frontmatter fields and see autocompletion
+   - Notice validation warnings for literal values that could use substitutions
 
 ## Installation
 
 1. Download the latest `.vsix` file from the Releases page.
-2. Open VSCode.
+2. Start VSCode.
 3. Press `Ctrl/Cmd+Shift+P` to open Command Palette.
-4. Run "Extensions: Install from VSIX...".
+4. Run **Extensions: Install from VSIX...**.
 5. Select the downloaded `.vsix` file.
 
 ## Development
 
-For detailed development, testing, and deployment instructions, see the **[Deployment Guide](docs/deployment-guide.md)**.
+For detailed development, testing, and deployment instructions, refer to the **[Deployment Guide](docs/deployment-guide.md)**.
 
 ## License
 
-See [LICENSE.txt](LICENSE.txt) for details.
+Refer to [LICENSE.txt](LICENSE.txt) for details.
