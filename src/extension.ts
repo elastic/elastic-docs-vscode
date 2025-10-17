@@ -174,6 +174,8 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
             if (document.languageId === 'markdown') {
+                // Clear cache for this specific document since frontmatter may have changed
+                substitutionCache.clear();
                 updateDiagnostics(document);
             }
         })

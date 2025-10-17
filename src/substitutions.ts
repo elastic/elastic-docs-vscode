@@ -125,6 +125,14 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
       outputChannel.appendLine(`Error reading docset files: ${error}`);
   }
 
+  // Parse frontmatter subs from the current document
+  try {
+      const frontmatterSubs = parseFrontmatterSubs(documentUri);
+      Object.assign(substitutions, frontmatterSubs);
+  } catch (error) {
+      outputChannel.appendLine(`Error parsing frontmatter subs: ${error}`);
+  }
+
   // Add centralized product name subs
   for (const [key, value] of Object.entries(PRODUCTS)) {
       substitutions[`product.${key}`] = value;
@@ -220,6 +228,44 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
       }
   }
 
+  function parseFrontmatterSubs(documentUri: vscode.Uri): SubstitutionVariables {
+      try {
+          // Read the document content
+          const document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === documentUri.fsPath);
+          if (!document) {
+              // If document is not open, try to read from file system
+              const content = fs.readFileSync(documentUri.fsPath, 'utf8');
+              return extractSubsFromFrontmatter(content);
+          }
+
+          return extractSubsFromFrontmatter(document.getText());
+      } catch (error) {
+          outputChannel.appendLine(`Error parsing frontmatter subs from ${documentUri.fsPath}: ${error}`);
+          return {};
+      }
+  }
+
+  function extractSubsFromFrontmatter(content: string): SubstitutionVariables {
+      // Match frontmatter: starts with --- and ends with ---
+      const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+      if (!frontmatterMatch) {
+          return {};
+      }
+
+      const frontmatter = frontmatterMatch[1];
+      const parsed = parseYaml(frontmatter);
+
+      // Check for 'sub:' field in frontmatter
+      if (parsed && typeof parsed === 'object' && 'sub' in parsed) {
+          const sub = parsed.sub;
+          if (typeof sub === 'object' && sub !== null) {
+              return sub as SubstitutionVariables;
+          }
+      }
+
+      return {};
+  }
+
   function parseYaml(content: string): ParsedYaml {
       // Simple YAML parser for the specific structure we need
       const lines = content.split('\n');
@@ -234,6 +280,7 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
 
           const indent = line.length - line.trimStart().length;
 
+          // Check for both 'subs:' (docset.yml) and 'sub:' (frontmatter)
           if (trimmed === 'subs:') {
               result.subs = {};
               currentSection = result.subs as ParsedYaml;
@@ -241,8 +288,15 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
               continue;
           }
 
+          if (trimmed === 'sub:') {
+              result.sub = {};
+              currentSection = result.sub as ParsedYaml;
+              currentIndent = indent;
+              continue;
+          }
+
           if (currentSection && indent > currentIndent) {
-              // This is a key-value pair in the subs section
+              // This is a key-value pair in the subs/sub section
               const colonIndex = trimmed.indexOf(':');
               if (colonIndex > 0) {
                   const key = trimmed.substring(0, colonIndex).trim();

@@ -45,17 +45,28 @@ export class SubstitutionValidationProvider {
     }
 
     private validateContent(errors: ValidationError[], document: vscode.TextDocument): void {
-        const lines = document.getText().split('\n');
+        const text = document.getText();
         const substitutions = getSubstitutions(document.uri);
+
+        // Find frontmatter range to exclude it from validation
+        const frontmatterMatch = text.match(/^---\s*\n[\s\S]*?\n---/);
+        const frontmatterEnd = frontmatterMatch ? frontmatterMatch[0].length : 0;
+
+        // Only validate content after frontmatter
+        const contentToValidate = text.substring(frontmatterEnd);
+        const lines = contentToValidate.split('\n');
+        const lineOffset = text.substring(0, frontmatterEnd).split('\n').length - 1;
+
         const escapeRegExp = (text: string): string => {
             return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         };
+
         for (const [i, line] of lines.entries()) {
           for (const [key, value] of Object.entries(substitutions)) {
             const regex = new RegExp(`(\\W|^)${escapeRegExp(value)}(\\W|$)`, 'gm');
             let match;
             while ((match = regex.exec(line)) !== null) {
-              const lineNumber = i;
+              const lineNumber = i + lineOffset;
               const startChar = match.index + (match[1] ? match[1].length : 0);
               const endChar = startChar + value.length;
               const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
