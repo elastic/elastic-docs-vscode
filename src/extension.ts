@@ -28,6 +28,7 @@ import { FrontmatterCompletionProvider } from './frontmatterCompletionProvider';
 import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 import { SubstitutionValidationProvider } from './substitutionValidationProvider';
 import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
+import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
 import { substitutionCache } from './substitutions';
 
 import { outputChannel } from './logger';
@@ -57,6 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const frontmatterProvider = new FrontmatterCompletionProvider();
     const frontmatterValidator = new FrontmatterValidationProvider();
     const substitutionValidator = new SubstitutionValidationProvider();
+    const undefinedSubstitutionValidator = new UndefinedSubstitutionValidator();
     const substitutionCodeActionProvider = new SubstitutionCodeActionProvider();
 
     // Register completion providers for markdown files
@@ -88,7 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.languages.registerCompletionItemProvider(
             { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             substitutionProvider,
-            '{'
+            '{', '|'
         )
     );
     outputChannel.appendLine('Substitution completion provider registered');
@@ -129,9 +131,11 @@ export function activate(context: vscode.ExtensionContext): void {
     const diagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-directives');
     const frontmatterDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-frontmatter');
     const substitutionDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-substitution');
+    const undefinedSubDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-undefined-sub');
     context.subscriptions.push(diagnosticCollection);
     context.subscriptions.push(frontmatterDiagnosticCollection);
     context.subscriptions.push(substitutionDiagnosticCollection);
+    context.subscriptions.push(undefinedSubDiagnosticCollection);
 
     // Update diagnostics on save or open only (not on every keystroke)
     const updateDiagnostics = (document: vscode.TextDocument): void => {
@@ -144,9 +148,13 @@ export function activate(context: vscode.ExtensionContext): void {
             const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
             frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
 
-            // Substitution diagnostics
+            // Substitution diagnostics (suggests using subs instead of literals)
             const substitutionDiagnostics = substitutionValidator.validateDocument(document);
             substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+
+            // Undefined substitution diagnostics (warns about undefined subs)
+            const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
+            undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
         }
     };
 
@@ -286,6 +294,20 @@ function applyColorCustomizations(): void {
             "settings": {
                 "foreground": "#4ec9b0",
                 "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.substitution.mutation.pipe.elastic",
+            "settings": {
+                "foreground": "#d4d4d4",
+                "fontStyle": ""
+            }
+        },
+        {
+            "scope": "markup.substitution.mutation.operator.elastic",
+            "settings": {
+                "foreground": "#dcdcaa",
+                "fontStyle": "italic"
             }
         }
     ];

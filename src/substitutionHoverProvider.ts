@@ -20,6 +20,7 @@
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { getSubstitutions } from './substitutions';
+import { parseSubstitution, describeMutationChain } from './mutations';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -54,18 +55,34 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             if (beforeMatch && afterMatch) {
                 // We're inside a substitution variable
                 const substitutions = getSubstitutions(document.uri);
-                const variableName = word;
 
+                // Get the full text inside {{ }}
+                const fullText = beforeMatch[1] + word + afterMatch[1];
+                const { variableName, mutations } = parseSubstitution(fullText);
+
+                // Only show hover if the variable is defined
                 if (substitutions[variableName]) {
                     const value = substitutions[variableName];
                     const markdown = new vscode.MarkdownString();
 
                     markdown.appendMarkdown(`**Substitution Variable:** \`${variableName}\`\n\n`);
                     markdown.appendMarkdown(`**Value:** ${value}\n\n`);
-                    markdown.appendMarkdown(`**Usage:** \`{{${variableName}}}\``);
+
+                    // If there are mutations, describe them
+                    if (mutations.length > 0) {
+                        markdown.appendMarkdown(`**Mutations Applied:**\n\n`);
+                        const mutationDescription = describeMutationChain(mutations);
+                        markdown.appendMarkdown(mutationDescription + '\n\n');
+                        markdown.appendMarkdown(`**Usage:** \`{{${variableName} | ${mutations.join(' | ')}}}\``);
+                    } else {
+                        markdown.appendMarkdown(`**Usage:** \`{{${variableName}}}\``);
+                    }
 
                     return new vscode.Hover(markdown, wordRange);
                 }
+
+                // If variable is not defined, return null (no hover)
+                return null;
             }
 
             return null;
@@ -79,41 +96,40 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
         const lineText = document.lineAt(position).text;
         const char = position.character;
 
-        // Check if we're inside a {{variable}} pattern
+        // Check if we're inside a {{variable}} pattern (with possible mutations)
         const beforeText = lineText.substring(0, char);
         const afterText = lineText.substring(char);
 
-        // Look for {{ before the cursor (including dots for product.name pattern)
-        const beforeMatch = beforeText.match(/\{\{([a-zA-Z0-9_.-]*)$/);
+        // Look for {{ before the cursor (including dots, pipes, and spaces for mutations)
+        const beforeMatch = beforeText.match(/\{\{([a-zA-Z0-9_.\-|+\s]*)$/);
         if (!beforeMatch) {
             return null;
         }
 
-        // Look for }} after the cursor (including dots for product.name pattern)
-        const afterMatch = afterText.match(/^([a-zA-Z0-9_.-]*)\}\}/);
+        // Look for }} after the cursor (including dots, pipes, and spaces for mutations)
+        const afterMatch = afterText.match(/^([a-zA-Z0-9_.\-|+\s]*)\}\}/);
         if (!afterMatch) {
             return null;
         }
 
-        // Calculate the full variable name and range
-        const variableStart = char - beforeMatch[1].length;
-        const variableEnd = char + afterMatch[1].length;
+        // Calculate the full content range (variable + mutations)
+        const contentStart = char - beforeMatch[1].length;
+        const contentEnd = char + afterMatch[1].length;
 
         // Ensure we're within the line bounds
-        if (variableStart < 0 || variableEnd > lineText.length) {
+        if (contentStart < 0 || contentEnd > lineText.length) {
             return null;
         }
 
-        // Verify the full pattern is {{variable}} (including dots for product.name pattern)
-        const fullPattern = lineText.substring(variableStart - 2, variableEnd + 2);
-        if (!fullPattern.match(/^\{\{[a-zA-Z0-9_.-]*\}\}$/)) {
+        // Verify the full pattern is {{variable [| mutations]}}
+        const fullPattern = lineText.substring(contentStart - 2, contentEnd + 2);
+        if (!fullPattern.match(/^\{\{[a-zA-Z0-9_.\-|+\s]*\}\}$/)) {
             return null;
         }
-
 
         return new vscode.Range(
-            new vscode.Position(position.line, variableStart),
-            new vscode.Position(position.line, variableEnd)
+            new vscode.Position(position.line, contentStart),
+            new vscode.Position(position.line, contentEnd)
         );
     }
 }

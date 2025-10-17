@@ -132,19 +132,48 @@
     "elastic-substitutions": {
       "patterns": [
         {
-          "name": "markup.substitution.punctuation.elastic",
-          "match": "(\\{\\{)([a-zA-Z][a-zA-Z0-9_.-]*)(\\}\\})",
-          "captures": {
+          "name": "markup.substitution.elastic",
+          "begin": "(\\{\\{)",
+          "end": "(\\}\\})",
+          "beginCaptures": {
             "1": {
               "name": "markup.substitution.punctuation.elastic"
-            },
-            "2": {
-              "name": "markup.substitution.variable.elastic"
-            },
-            "3": {
+            }
+          },
+          "endCaptures": {
+            "1": {
               "name": "markup.substitution.punctuation.elastic"
             }
-          }
+          },
+          "patterns": [
+            {
+              "match": "([a-zA-Z][a-zA-Z0-9_.-]*)\\s*(\\|)\\s*([a-zA-Z0-9+.]+(?:\\s*\\|\\s*[a-zA-Z0-9+.]+)*)",
+              "captures": {
+                "1": {
+                  "name": "markup.substitution.variable.elastic"
+                },
+                "2": {
+                  "name": "markup.substitution.mutation.pipe.elastic"
+                },
+                "3": {
+                  "patterns": [
+                    {
+                      "match": "(\\|)",
+                      "name": "markup.substitution.mutation.pipe.elastic"
+                    },
+                    {
+                      "match": "([a-zA-Z0-9+.]+)",
+                      "name": "markup.substitution.mutation.operator.elastic"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "match": "([a-zA-Z][a-zA-Z0-9_.-]*)",
+              "name": "markup.substitution.variable.elastic"
+            }
+          ]
         }
       ]
     }
