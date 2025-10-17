@@ -108,17 +108,8 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
 
       for (const docsetFile of docsetFiles) {
           const unorderedSubs = parseDocsetFile(docsetFile);
-          const productValues = Object.values(PRODUCTS);
-          const filteredSubs = Object.keys(unorderedSubs).filter(sub => {
-            return !productValues.includes(unorderedSubs[sub]);
-          }).reduce(
-              (obj: { [key: string]: string }, key: string) => {
-                  obj[key] = unorderedSubs[key];
-                  return obj;
-              },
-              {} as { [key: string]: string }
-          );
-          Object.assign(substitutions, filteredSubs);
+          // Allow all custom substitutions from docset.yml, including product name overrides
+          Object.assign(substitutions, unorderedSubs);
       }
 
   } catch (error) {
