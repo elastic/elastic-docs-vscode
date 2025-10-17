@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
-import { getSubstitutions } from './substitutions';
+import { getSubstitutions, resolveShorthand } from './substitutions';
 import { parseSubstitution } from './mutations';
 
 interface ValidationError {
@@ -62,8 +62,9 @@ export class UndefinedSubstitutionValidator {
             // Parse to get variable name (without mutations)
             const { variableName } = parseSubstitution(content);
 
-            // Check if this substitution is defined
-            if (!substitutions[variableName]) {
+            // Check if this substitution is defined (including shorthand resolution)
+            const resolved = resolveShorthand(variableName, substitutions);
+            if (!resolved) {
                 const startPos = document.positionAt(startOffset);
                 const endPos = document.positionAt(endOffset);
                 const range = new vscode.Range(startPos, endPos);

@@ -55,6 +55,44 @@ class SubstitutionCache {
 // Export a singleton cache instance
 export const substitutionCache = new SubstitutionCache();
 
+/**
+ * Resolves a shorthand variable name (e.g., ".elasticsearch") to its full form ("product.elasticsearch")
+ * @param variableName The variable name, possibly with shorthand notation
+ * @param substitutions The available substitutions
+ * @returns The resolved variable name and value, or null if not found
+ */
+export function resolveShorthand(variableName: string, substitutions: SubstitutionVariables): {
+    resolvedName: string;
+    value: string;
+    isShorthand: boolean;
+} | null {
+    // Check if it's a shorthand starting with a dot
+    if (variableName.startsWith('.')) {
+        const productKey = variableName.substring(1); // Remove the leading dot
+        const fullForm = `product.${productKey}`;
+
+        if (substitutions[fullForm]) {
+            return {
+                resolvedName: fullForm,
+                value: substitutions[fullForm],
+                isShorthand: true
+            };
+        }
+        return null;
+    }
+
+    // Not a shorthand, check if it exists as-is
+    if (substitutions[variableName]) {
+        return {
+            resolvedName: variableName,
+            value: substitutions[variableName],
+            isShorthand: false
+        };
+    }
+
+    return null;
+}
+
 export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables {
   // Check cache first
   const cached = substitutionCache.get(documentUri.fsPath);

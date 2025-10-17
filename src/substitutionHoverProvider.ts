@@ -19,7 +19,7 @@
 
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
-import { getSubstitutions } from './substitutions';
+import { getSubstitutions, resolveShorthand } from './substitutions';
 import { parseSubstitution, describeMutationChain } from './mutations';
 
 interface SubstitutionVariables {
@@ -60,13 +60,21 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
                 const fullText = beforeMatch[1] + word + afterMatch[1];
                 const { variableName, mutations } = parseSubstitution(fullText);
 
-                // Only show hover if the variable is defined
-                if (substitutions[variableName]) {
-                    const value = substitutions[variableName];
+                // Resolve shorthand notation (e.g., .elasticsearch -> product.elasticsearch)
+                const resolved = resolveShorthand(variableName, substitutions);
+
+                // Only show hover if the variable is defined (or shorthand resolves)
+                if (resolved) {
                     const markdown = new vscode.MarkdownString();
 
-                    markdown.appendMarkdown(`**Substitution Variable:** \`${variableName}\`\n\n`);
-                    markdown.appendMarkdown(`**Value:** ${value}\n\n`);
+                    if (resolved.isShorthand) {
+                        markdown.appendMarkdown(`**Substitution Variable (shorthand):** \`${variableName}\`\n\n`);
+                        markdown.appendMarkdown(`**Full form:** \`${resolved.resolvedName}\`\n\n`);
+                    } else {
+                        markdown.appendMarkdown(`**Substitution Variable:** \`${variableName}\`\n\n`);
+                    }
+
+                    markdown.appendMarkdown(`**Value:** ${resolved.value}\n\n`);
 
                     // If there are mutations, describe them
                     if (mutations.length > 0) {
