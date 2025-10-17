@@ -20,12 +20,8 @@
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { getSubstitutions, resolveShorthand } from './substitutions';
-import { parseSubstitution, describeMutationChain, MUTATION_OPERATORS } from './mutations';
+import { parseSubstitution, MUTATION_OPERATORS } from './mutations';
 import { applyMutationChain } from './mutationEngine';
-
-interface SubstitutionVariables {
-    [key: string]: string;
-}
 
 export class SubstitutionHoverProvider implements vscode.HoverProvider {
     provideHover(
