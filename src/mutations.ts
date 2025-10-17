@@ -23,6 +23,7 @@ export interface MutationOperator {
     example?: string;
 }
 
+// Export MUTATION_OPERATORS for use in hover provider
 export const MUTATION_OPERATORS: Record<string, MutationOperator> = {
     'lc': {
         operator: 'lc',

@@ -20,7 +20,8 @@
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { getSubstitutions, resolveShorthand } from './substitutions';
-import { parseSubstitution, describeMutationChain } from './mutations';
+import { parseSubstitution, describeMutationChain, MUTATION_OPERATORS } from './mutations';
+import { applyMutationChain } from './mutationEngine';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -76,11 +77,37 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
 
                     markdown.appendMarkdown(`**Value:** ${resolved.value}\n\n`);
 
-                    // If there are mutations, describe them
+                    // If there are mutations, describe them and show computed results
                     if (mutations.length > 0) {
                         markdown.appendMarkdown(`**Mutations Applied:**\n\n`);
-                        const mutationDescription = describeMutationChain(mutations);
-                        markdown.appendMarkdown(mutationDescription + '\n\n');
+
+                        // Apply mutation chain and get intermediate results
+                        const results = applyMutationChain(resolved.value, mutations);
+
+                        // Show each mutation with its result
+                        for (let i = 0; i < mutations.length; i++) {
+                            const operator = mutations[i];
+                            const operatorInfo = MUTATION_OPERATORS[operator];
+                            const inputValue = results[i];
+                            const outputValue = results[i + 1];
+
+                            if (operatorInfo) {
+                                markdown.appendMarkdown(`**${operator}**: ${operatorInfo.description}\n\n`);
+                            } else {
+                                markdown.appendMarkdown(`**${operator}**: Unknown operator\n\n`);
+                            }
+
+                            // Show transformation
+                            if (inputValue !== outputValue) {
+                                markdown.appendMarkdown(`\`${inputValue}\` → \`${outputValue}\`\n\n`);
+                            } else {
+                                markdown.appendMarkdown(`\`${inputValue}\` (no change)\n\n`);
+                            }
+                        }
+
+                        // Show final result
+                        const finalResult = results[results.length - 1];
+                        markdown.appendMarkdown(`**Final result:** \`${finalResult}\`\n\n`);
                         markdown.appendMarkdown(`**Usage:** \`{{${variableName} | ${mutations.join(' | ')}}}\``);
                     } else {
                         markdown.appendMarkdown(`**Usage:** \`{{${variableName}}}\``);
