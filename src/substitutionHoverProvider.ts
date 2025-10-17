@@ -107,10 +107,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
 
                         // Show final result
                         const finalResult = results[results.length - 1];
-                        markdown.appendMarkdown(`**Final result:** \`${finalResult}\`\n\n`);
-                        markdown.appendMarkdown(`**Usage:** \`{{${variableName} | ${mutations.join(' | ')}}}\``);
-                    } else {
-                        markdown.appendMarkdown(`**Usage:** \`{{${variableName}}}\``);
+                        markdown.appendMarkdown(`**Final result:** \`${finalResult}\``);
                     }
 
                     return new vscode.Hover(markdown, wordRange);
