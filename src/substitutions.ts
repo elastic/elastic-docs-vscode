@@ -31,19 +31,35 @@ interface ParsedYaml {
     [key: string]: unknown;
 }
 
-export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: Map<string, SubstitutionVariables>, lastCacheUpdate?: number): SubstitutionVariables {
-  const CACHE_DURATION = 30000; // 30 seconds
+// Centralized cache for substitutions
+class SubstitutionCache {
+    private cache: Map<string, SubstitutionVariables> = new Map();
 
-  const now = Date.now();
+    get(key: string): SubstitutionVariables | undefined {
+        return this.cache.get(key);
+    }
 
-  // Return cached results if still valid
-  if (lastCacheUpdate && cachedSubstitutions) {
-      if (now - lastCacheUpdate < CACHE_DURATION) {
-          const cached = cachedSubstitutions.get(documentUri.fsPath);
-          if (cached) {
-              return cached;
-          }
-      }
+    set(key: string, value: SubstitutionVariables): void {
+        this.cache.set(key, value);
+    }
+
+    clear(): void {
+        this.cache.clear();
+    }
+
+    has(key: string): boolean {
+        return this.cache.has(key);
+    }
+}
+
+// Export a singleton cache instance
+export const substitutionCache = new SubstitutionCache();
+
+export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables {
+  // Check cache first
+  const cached = substitutionCache.get(documentUri.fsPath);
+  if (cached) {
+      return cached;
   }
 
   const substitutions: SubstitutionVariables = {};
@@ -204,6 +220,9 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
 
       return result;
   }
+
+  // Cache the result before returning
+  substitutionCache.set(documentUri.fsPath, orderedSubs);
 
   return orderedSubs;
 }

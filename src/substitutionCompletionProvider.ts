@@ -27,9 +27,6 @@ interface SubstitutionVariables {
 }
 
 export class SubstitutionCompletionProvider implements vscode.CompletionItemProvider {
-    private cachedSubstitutions: Map<string, SubstitutionVariables> = new Map();
-    private lastCacheUpdate: number = 0;
-
     provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -47,7 +44,7 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
             }
 
             const partialVariable = substitutionMatch[1];
-            const substitutions = getSubstitutions(document.uri, this.cachedSubstitutions, this.lastCacheUpdate);
+            const substitutions = getSubstitutions(document.uri);
 
             return this.createCompletionItems(substitutions, partialVariable);
         } catch (error) {
@@ -98,11 +95,5 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         }
 
         return items;
-    }
-
-    // Method to clear cache when workspace changes
-    public clearCache(): void {
-        this.cachedSubstitutions.clear();
-        this.lastCacheUpdate = 0;
     }
 }

@@ -26,9 +26,6 @@ interface SubstitutionVariables {
 }
 
 export class SubstitutionHoverProvider implements vscode.HoverProvider {
-    private cachedSubstitutions: Map<string, SubstitutionVariables> = new Map();
-    private lastCacheUpdate: number = 0;
-
     provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -56,7 +53,7 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
 
             if (beforeMatch && afterMatch) {
                 // We're inside a substitution variable
-                const substitutions = getSubstitutions(document.uri, this.cachedSubstitutions, this.lastCacheUpdate);
+                const substitutions = getSubstitutions(document.uri);
                 const variableName = word;
 
                 if (substitutions[variableName]) {
@@ -118,11 +115,5 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             new vscode.Position(position.line, variableStart),
             new vscode.Position(position.line, variableEnd)
         );
-    }
-
-    // Method to clear cache when workspace changes
-    public clearCache(): void {
-        this.cachedSubstitutions.clear();
-        this.lastCacheUpdate = 0;
     }
 }
