@@ -10,8 +10,9 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - **Directive autocompletion**: Autocompletes standard and inline directives.
 - **Frontmatter autocompletion**: Autocompletes frontmatter fields.
 - **Settings autocomplete**: Enter `:` inside a directive to view suggested settings.
-- **Inline role completion**: Use `{icon}`, `{kbd}`, and `{applies_to}` with autocompletion.
-- **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files.
+- **Inline role completion**: Use `{icon}`, `{kbd}`, `{applies_to}`, and `{subs}` with autocompletion.
+- **Substitution autocompletion**: Type `{{` to see available substitution variables from `docset.yml` files and document frontmatter.
+- **Mutation operator completion**: Type `|` after a substitution variable to see available mutation operators for text and version transformations.
 
 ### Validation and diagnostics
 - **Frontmatter validation**: Validates frontmatter fields against schema.
@@ -19,9 +20,10 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - **Substitution validation**: Warns when literal values should be replaced with substitution variables.
 
 ### Enhanced user experience
-- **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values.
+- **Substitution tooltips**: Hover over existing `{{variable}}` to see their full values and mutation transformations.
+- **Mutation preview**: See step-by-step transformation results when hovering over variables with mutations.
 - **Enhanced completion tooltips**: Get full variable values when selecting from autocompletion.
-- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, and substitution variables that works alongside standard Markdown highlighting.
+- **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, substitution variables, and mutation operators that works alongside standard Markdown highlighting.
 
 ## Inline roles
 
@@ -35,6 +37,11 @@ Use `{kbd}` to format keyboard shortcuts. Type `{kbd}` followed by a backtick to
 
 ### Applies-to roles
 Use `{applies_to}` to specify product or deployment applicability. Type `{applies_to}` followed by a backtick to see available product keys and lifecycle states.
+
+### Subs roles
+Use `{subs}` for inline code that contains substitution variables. Type `{subs}` followed by a backtick, then use `{{variable}}` syntax with full autocompletion and mutation support.
+
+Example: `{subs}`wget elasticsearch-{{version}}.tar.gz``
 
 ## Supported directives
 
@@ -62,7 +69,49 @@ Use `{applies_to}` to specify product or deployment applicability. Type `{applie
 
 ## Substitution variables
 
-The extension supports autocompletion for substitution variables defined in `docset.yml` files. These variables can be used throughout your markdown files with the `{{variable}}` syntax.
+The extension supports autocompletion for substitution variables defined in `docset.yml` files and document frontmatter (`sub:` field). These variables can be used throughout your markdown files with the `{{variable}}` syntax.
+
+### Mutation operators
+
+Transform substitution values using mutation operators with pipe syntax:
+
+**Text case mutations:**
+- `lc` - lowercase: `{{product.name | lc}}`
+- `uc` - UPPERCASE: `{{product.name | uc}}`
+- `tc` - Title Case: `{{product.name | tc}}`
+- `c` - Capitalize: `{{product.name | c}}`
+- `kc` - kebab-case: `{{product.name | kc}}`
+- `sc` - snake_case: `{{product.name | sc}}`
+- `cc` - camelCase: `{{product.name | cc}}`
+- `pc` - PascalCase: `{{product.name | pc}}`
+- `trim` - Remove extra characters: `{{value | trim}}`
+
+**Version mutations:**
+- `M` - Major version: `{{version | M}}` (9.1.5 → 9)
+- `M.x` - Major.x: `{{version | M.x}}` (9.1.5 → 9.x)
+- `M.M` - Major.Minor: `{{version | M.M}}` (9.1.5 → 9.1)
+- `M+1` - Next major: `{{version | M+1}}` (9.1.5 → 10)
+- `M.M+1` - Next minor: `{{version | M.M+1}}` (9.1.5 → 9.2)
+
+**Chained mutations:** Combine multiple operators: `{{product.name | lc | kc}}`
+
+### Shorthand notation
+
+Use `.id` as shorthand for `product.id`: `{{.elasticsearch}}` is equivalent to `{{product.elasticsearch}}`
+
+### Frontmatter substitutions
+
+Define document-specific substitutions in the frontmatter `sub:` field:
+
+```yaml
+---
+sub:
+  my-variable: "My Value"
+  version: "9.1.5"
+---
+```
+
+These merge with `docset.yml` substitutions and are available throughout the document.
 
 ### Substitution validation and quick fixes
 
@@ -85,8 +134,12 @@ This helps maintain consistency across your documentation and makes it easier to
    - Type `:::` to see directive completions
    - Type `{icon}` followed by a backtick to see icon options
    - Type `{{` to see substitution variables
+   - Type `|` after a variable to see mutation operators
+   - Use `.elasticsearch` shorthand for `product.elasticsearch`
+   - Add `sub:` field in frontmatter for document-specific variables
    - Add frontmatter fields and see autocompletion
    - Notice validation warnings for literal values that could use substitutions
+   - Hover over variables with mutations to see transformation previews
 
 ## Installation
 

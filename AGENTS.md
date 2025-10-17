@@ -28,23 +28,26 @@ The extension provides 10 primary features:
 ### Core structure
 ```
 src/
-├── extension.ts                     # Main entry point & provider registration
-├── directives.ts                    # Directive definitions & templates
-├── directiveCompletionProvider.ts   # Handles :::{directive} completion
-├── parameterCompletionProvider.ts   # Handles :parameter completion inside directives
-├── roleCompletionProvider.ts        # Handles {icon}, {kbd}, and {applies_to} role completion
-├── substitutionCompletionProvider.ts # Handles {{variable}} completion
-├── substitutionHoverProvider.ts     # Provides hover tooltips for variables
-├── substitutionValidationProvider.ts # Validates substitution usage and suggests improvements
-├── substitutionCodeActionProvider.ts # Provides quick fixes for substitution warnings
-├── frontmatterCompletionProvider.ts # Handles YAML frontmatter completion
-├── frontmatterValidationProvider.ts # Validates frontmatter against schema
-├── directiveDiagnosticProvider.ts   # Validates directive syntax
-├── frontmatterSchema.ts             # TypeScript schema definitions for frontmatter
-├── frontmatter-schema.json          # JSON schema for frontmatter validation
-├── substitutions.ts                 # Substitution variable parsing and caching utilities
-├── products.ts                      # Product definitions and mappings
-└── logger.ts                        # Centralized logging utilities
+├── extension.ts                        # Main entry point & provider registration
+├── directives.ts                       # Directive definitions & templates
+├── directiveCompletionProvider.ts      # Handles :::{directive} completion
+├── parameterCompletionProvider.ts      # Handles :parameter completion inside directives
+├── roleCompletionProvider.ts           # Handles {icon}, {kbd}, {applies_to}, and {subs} role completion
+├── substitutionCompletionProvider.ts   # Handles {{variable}} completion with mutations
+├── substitutionHoverProvider.ts        # Provides hover tooltips with mutation previews
+├── substitutionValidationProvider.ts   # Validates substitution usage and suggests improvements
+├── substitutionCodeActionProvider.ts   # Provides quick fixes for substitution warnings
+├── undefinedSubstitutionValidator.ts   # Validates undefined substitution references
+├── mutations.ts                        # Mutation operator definitions and parsing
+├── mutationEngine.ts                   # Mutation transformation engine
+├── frontmatterCompletionProvider.ts    # Handles YAML frontmatter completion
+├── frontmatterValidationProvider.ts    # Validates frontmatter against schema
+├── directiveDiagnosticProvider.ts      # Validates directive syntax
+├── frontmatterSchema.ts                # TypeScript schema definitions for frontmatter
+├── frontmatter-schema.json             # JSON schema for frontmatter validation
+├── substitutions.ts                    # Substitution variable parsing and caching utilities
+├── products.ts                         # Product definitions and mappings
+└── logger.ts                           # Centralized logging utilities
 
 syntaxes/
 └── elastic-markdown.tmLanguage.json # TextMate grammar for syntax highlighting
@@ -110,39 +113,47 @@ All providers are registered in `src/extension.ts` using `vscode.languages.regis
 - Product-specific completion for APM agents, EDOT components, and deployment models
 
 ### 4. SubstitutionCompletionProvider
-**File**: `src/substitutionCompletionProvider.ts`  
-**Triggers**: `{` character  
-**Purpose**: Completes substitution variables from docset.yml files
+**File**: `src/substitutionCompletionProvider.ts`
+**Triggers**: `{`, `|` characters
+**Purpose**: Completes substitution variables from docset.yml files and frontmatter
 
 **How it works**:
 - Scans workspace for `docset.yml` files
-- Parses YAML to extract substitution variables
-- Triggers on `{{` pattern
+- Parses document frontmatter `sub:` field for inline substitutions
+- Merges frontmatter and docset.yml substitutions
+- Triggers on `{{` pattern for variables
+- Triggers on `|` for mutation operators
 - Provides variable name completion with preview values
+- Supports shorthand notation (`.id` → `product.id`)
 - Caches parsed docset files for performance
 
 **Key features**:
-- Multi-file docset support
+- Multi-file docset support with frontmatter overrides
 - Hierarchical variable resolution
 - Value preview in completion items
 - YAML parsing error handling
+- Mutation operator completion (lc, uc, tc, c, kc, sc, cc, pc, trim, M, M.x, M.M, M+1, M.M+1)
+- Shorthand notation support
+- Performance optimized with cache invalidation on save
 
 ### 5. SubstitutionValidationProvider
-**File**: `src/substitutionValidationProvider.ts`  
+**File**: `src/substitutionValidationProvider.ts`
 **Purpose**: Validates substitution usage and suggests improvements
 
 **How it works**:
 - Scans document content for literal values that match substitution variables
-- Compares found values against available substitutions from docset.yml files
+- Compares found values against available substitutions from docset.yml and frontmatter
 - Provides warnings when literal values should be replaced with `{{variable}}` syntax
 - Uses regex matching to detect values in context (word boundaries)
 - Prevents duplicate warnings for overlapping matches
+- Excludes frontmatter section from validation to avoid false positives
 
 **Key features**:
-- Real-time validation as user types
+- Validation runs on save/open (not on every keystroke for performance)
 - Context-aware detection (respects word boundaries)
 - Integration with VS Code diagnostics system
 - Performance optimized with caching
+- Frontmatter exclusion to prevent false positives on substitution definitions
 
 ### 6. FrontmatterCompletionProvider
 **File**: `src/frontmatterCompletionProvider.ts`  
@@ -220,12 +231,44 @@ export interface DirectiveDefinition {
 - Used for frontmatter completion and substitution filtering
 
 ### Substitution utilities
-**File**: `src/substitutions.ts`  
-- YAML parsing utilities for docset.yml files
-- Caching system for performance optimization
+**File**: `src/substitutions.ts`
+- YAML parsing utilities for docset.yml files and frontmatter
+- Centralized cache management with SubstitutionCache class
 - Multi-file docset support with hierarchical resolution
+- Frontmatter `sub:` field parsing and merging
+- Shorthand notation resolution (`.id` → `product.id`)
 - Product filtering to avoid circular references
 - Ordered substitution variables by value length
+- Cache invalidation on document save
+
+### Mutation operators
+**Files**: `src/mutations.ts`, `src/mutationEngine.ts`
+
+**Text case mutations**:
+- `lc` - LowerCase: converts all characters to lowercase
+- `uc` - UpperCase: converts all characters to uppercase
+- `tc` - TitleCase: capitalizes all words
+- `c` - Capitalize: capitalizes the first letter
+- `kc` - KebabCase: converts to kebab-case
+- `sc` - SnakeCase: converts to snake_case
+- `cc` - CamelCase: converts to camelCase
+- `pc` - PascalCase: converts to PascalCase
+- `trim` - Trim: removes common non-word characters from start and end
+
+**Version mutations**:
+- `M` - Major: displays only the major version component (e.g., 9.1.5 → 9)
+- `M.x` - Major.x: displays major component followed by '.x' (e.g., 9.1.5 → 9.x)
+- `M.M` - Major.Minor: displays only major and minor components (e.g., 9.1.5 → 9.1)
+- `M+1` - Next Major: increments to the next major version (e.g., 9.1.5 → 10)
+- `M.M+1` - Next Minor: increments to the next minor version (e.g., 9.1.5 → 9.2)
+
+**Usage**: Mutations can be chained using pipe syntax: `{{version | lc | M}}`
+
+**Key features**:
+- Step-by-step transformation display in hover cards
+- Completion support after pipe character
+- Syntax highlighting for mutation operators
+- Error-tolerant transformation (returns original on failure)
 
 ### Role completion constants
 **File**: `src/roleCompletionProvider.ts`  
@@ -568,6 +611,20 @@ This guide should provide all the necessary information for understanding and ex
 
 ## Recent architecture updates
 
+### Version 0.10.0+ Changes (Substitution Improvements)
+- **Mutation operators**: Added comprehensive mutation system for text transformations and version manipulation
+  - Text case mutations (lc, uc, tc, c, kc, sc, cc, pc, trim)
+  - Version mutations (M, M.x, M.M, M+1, M.M+1)
+  - Chained mutation support with pipe syntax
+  - Real-time computation and preview in hover cards
+- **Frontmatter substitutions**: Parse `sub:` field in document frontmatter for inline variable definitions
+- **Shorthand notation**: Support `.id` shorthand for `product.id` (e.g., `{{.elasticsearch}}`)
+- **{subs} role**: Added inline code role for substitutions with full syntax highlighting
+- **Performance optimization**: Validation runs only on save/open instead of every keystroke
+- **Centralized caching**: Unified cache management with explicit invalidation
+- **Undefined substitution validation**: Separate validator for undefined variable references
+- **Frontmatter exclusion**: Validation skips frontmatter to prevent false positives
+
 ### Version 0.9.0+ Changes
 - **Enhanced role completion**: Added `{applies_to}` role support with comprehensive product/deployment key completion
 - **Substitution validation**: New validation provider that warns when literal values should be replaced with substitution variables
@@ -580,4 +637,5 @@ This guide should provide all the necessary information for understanding and ex
 - **Separation of concerns**: Validation logic separated into dedicated providers
 - **Type safety**: TypeScript schemas provide better type checking and IDE support
 - **Performance**: Caching and debouncing reduce computational overhead
+- **Mutation engine**: Separate transformation engine for extensible mutation operations
 - **Extensibility**: Modular design makes it easier to add new completion types and validation rules
