@@ -64,9 +64,16 @@ Use `{applies_to}` to specify product or deployment applicability. Type `{applie
 
 The extension supports autocompletion for substitution variables defined in `docset.yml` files. These variables can be used throughout your markdown files with the `{{variable}}` syntax.
 
-### Substitution validation
+### Substitution validation and quick fixes
 
 The extension automatically detects when you're using literal values that can be replaced with substitution variables. For example, if you have a substitution variable `{{product.apm}}` defined in your `docset.yml` file with the value "APM", the extension shows a warning when you type "APM" directly in your content, suggesting you use `{{product.apm}}` instead.
+
+**Quick fix feature**: When the extension detects a literal value that should be replaced, you can:
+- Click the lightbulb icon that appears
+- Use the "Quick Fix..." menu (Ctrl+. or Cmd+. on macOS)
+- Hover over the warning and click "Quick Fix"
+
+The extension will automatically replace the literal text with the correct substitution variable syntax.
 
 This helps maintain consistency across your documentation and makes it easier to update product names and other values globally.
 

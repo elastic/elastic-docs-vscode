@@ -27,6 +27,7 @@ import { SubstitutionHoverProvider } from './substitutionHoverProvider';
 import { FrontmatterCompletionProvider } from './frontmatterCompletionProvider';
 import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 import { SubstitutionValidationProvider } from './substitutionValidationProvider';
+import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
 
 import { outputChannel } from './logger';
 
@@ -55,6 +56,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const frontmatterProvider = new FrontmatterCompletionProvider();
     const frontmatterValidator = new FrontmatterValidationProvider();
     const substitutionValidator = new SubstitutionValidationProvider();
+    const substitutionCodeActionProvider = new SubstitutionCodeActionProvider();
 
     // Register completion providers for markdown files
     context.subscriptions.push(
@@ -98,6 +100,18 @@ export function activate(context: vscode.ExtensionContext): void {
         )
     );
     outputChannel.appendLine('Substitution hover provider registered');
+
+    // Register code action provider for substitution quick fixes
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(
+            { scheme: '*', language: 'markdown', pattern: '**/*.md' },
+            substitutionCodeActionProvider,
+            {
+                providedCodeActionKinds: SubstitutionCodeActionProvider.providedCodeActionKinds
+            }
+        )
+    );
+    outputChannel.appendLine('Substitution code action provider registered');
 
     // Register frontmatter completion provider
     // Trigger on colon for values, space after colon, and other key characters
