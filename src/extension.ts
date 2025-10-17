@@ -28,6 +28,8 @@ import { FrontmatterCompletionProvider } from './frontmatterCompletionProvider';
 import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 import { SubstitutionValidationProvider } from './substitutionValidationProvider';
 import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
+import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
+import { substitutionCache } from './substitutions';
 
 import { outputChannel } from './logger';
 
@@ -56,6 +58,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const frontmatterProvider = new FrontmatterCompletionProvider();
     const frontmatterValidator = new FrontmatterValidationProvider();
     const substitutionValidator = new SubstitutionValidationProvider();
+    const undefinedSubstitutionValidator = new UndefinedSubstitutionValidator();
     const substitutionCodeActionProvider = new SubstitutionCodeActionProvider();
 
     // Register completion providers for markdown files
@@ -87,7 +90,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.languages.registerCompletionItemProvider(
             { scheme: '*', language: 'markdown', pattern: '**/*.md' },
             substitutionProvider,
-            '{'
+            '{', '|'
         )
     );
     outputChannel.appendLine('Substitution completion provider registered');
@@ -128,11 +131,13 @@ export function activate(context: vscode.ExtensionContext): void {
     const diagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-directives');
     const frontmatterDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-frontmatter');
     const substitutionDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-substitution');
+    const undefinedSubDiagnosticCollection = vscode.languages.createDiagnosticCollection('elastic-undefined-sub');
     context.subscriptions.push(diagnosticCollection);
     context.subscriptions.push(frontmatterDiagnosticCollection);
     context.subscriptions.push(substitutionDiagnosticCollection);
+    context.subscriptions.push(undefinedSubDiagnosticCollection);
 
-    // Update diagnostics when document changes
+    // Update diagnostics on save or open only (not on every keystroke)
     const updateDiagnostics = (document: vscode.TextDocument): void => {
         if (document.languageId === 'markdown') {
             // Directive diagnostics
@@ -142,23 +147,21 @@ export function activate(context: vscode.ExtensionContext): void {
             // Frontmatter diagnostics
             const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
             frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
-            // Substitution diagnostics
+
+            // Substitution diagnostics (suggests using subs instead of literals)
             const substitutionDiagnostics = substitutionValidator.validateDocument(document);
             substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+
+            // Undefined substitution diagnostics (warns about undefined subs)
+            const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
+            undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
         }
     };
 
-    // Initial diagnostics
+    // Initial diagnostics for already open documents
     if (vscode.window.activeTextEditor) {
         updateDiagnostics(vscode.window.activeTextEditor.document);
     }
-
-    // Listen for document changes
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(event => {
-            updateDiagnostics(event.document);
-        })
-    );
 
     // Listen for document opens
     context.subscriptions.push(
@@ -167,34 +170,31 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Listen for document saves (for frontmatter validation)
+    // Listen for document saves
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
             if (document.languageId === 'markdown') {
-                // Re-run validation on save
-                const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
-                frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
-                const substitutionDiagnostics = substitutionValidator.validateDocument(document);
-                substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+                // Clear cache for this specific document since frontmatter may have changed
+                substitutionCache.clear();
+                updateDiagnostics(document);
             }
         })
     );
 
-    // Listen for workspace changes to clear substitution cache
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeTextDocument(event => {
-            if (event.document.fileName.endsWith('docset.yml') || event.document.fileName.endsWith('_docset.yml')) {
-                substitutionProvider.clearCache();
-                substitutionHoverProvider.clearCache();
-            }
-        })
-    );
-
+    // Listen for docset.yml changes to clear cache and re-validate all markdown documents
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
             if (document.fileName.endsWith('docset.yml') || document.fileName.endsWith('_docset.yml')) {
-                substitutionProvider.clearCache();
-                substitutionHoverProvider.clearCache();
+                // Clear the centralized cache
+                substitutionCache.clear();
+                outputChannel.appendLine('Substitution cache cleared due to docset.yml change');
+
+                // Re-validate all open markdown documents
+                vscode.workspace.textDocuments.forEach(doc => {
+                    if (doc.languageId === 'markdown') {
+                        updateDiagnostics(doc);
+                    }
+                });
             }
         })
     );
@@ -296,6 +296,20 @@ function applyColorCustomizations(): void {
             "settings": {
                 "foreground": "#4ec9b0",
                 "fontStyle": "bold"
+            }
+        },
+        {
+            "scope": "markup.substitution.mutation.pipe.elastic",
+            "settings": {
+                "foreground": "#d4d4d4",
+                "fontStyle": ""
+            }
+        },
+        {
+            "scope": "markup.substitution.mutation.operator.elastic",
+            "settings": {
+                "foreground": "#dcdcaa",
+                "fontStyle": "italic"
             }
         }
     ];

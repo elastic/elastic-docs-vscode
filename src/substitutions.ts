@@ -31,19 +31,73 @@ interface ParsedYaml {
     [key: string]: unknown;
 }
 
-export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: Map<string, SubstitutionVariables>, lastCacheUpdate?: number): SubstitutionVariables {
-  const CACHE_DURATION = 30000; // 30 seconds
+// Centralized cache for substitutions
+class SubstitutionCache {
+    private cache: Map<string, SubstitutionVariables> = new Map();
 
-  const now = Date.now();
+    get(key: string): SubstitutionVariables | undefined {
+        return this.cache.get(key);
+    }
 
-  // Return cached results if still valid
-  if (lastCacheUpdate && cachedSubstitutions) {
-      if (now - lastCacheUpdate < CACHE_DURATION) {
-          const cached = cachedSubstitutions.get(documentUri.fsPath);
-          if (cached) {
-              return cached;
-          }
-      }
+    set(key: string, value: SubstitutionVariables): void {
+        this.cache.set(key, value);
+    }
+
+    clear(): void {
+        this.cache.clear();
+    }
+
+    has(key: string): boolean {
+        return this.cache.has(key);
+    }
+}
+
+// Export a singleton cache instance
+export const substitutionCache = new SubstitutionCache();
+
+/**
+ * Resolves a shorthand variable name (e.g., ".elasticsearch") to its full form ("product.elasticsearch")
+ * @param variableName The variable name, possibly with shorthand notation
+ * @param substitutions The available substitutions
+ * @returns The resolved variable name and value, or null if not found
+ */
+export function resolveShorthand(variableName: string, substitutions: SubstitutionVariables): {
+    resolvedName: string;
+    value: string;
+    isShorthand: boolean;
+} | null {
+    // Check if it's a shorthand starting with a dot
+    if (variableName.startsWith('.')) {
+        const productKey = variableName.substring(1); // Remove the leading dot
+        const fullForm = `product.${productKey}`;
+
+        if (substitutions[fullForm]) {
+            return {
+                resolvedName: fullForm,
+                value: substitutions[fullForm],
+                isShorthand: true
+            };
+        }
+        return null;
+    }
+
+    // Not a shorthand, check if it exists as-is
+    if (substitutions[variableName]) {
+        return {
+            resolvedName: variableName,
+            value: substitutions[variableName],
+            isShorthand: false
+        };
+    }
+
+    return null;
+}
+
+export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables {
+  // Check cache first
+  const cached = substitutionCache.get(documentUri.fsPath);
+  if (cached) {
+      return cached;
   }
 
   const substitutions: SubstitutionVariables = {};
@@ -69,6 +123,14 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
 
   } catch (error) {
       outputChannel.appendLine(`Error reading docset files: ${error}`);
+  }
+
+  // Parse frontmatter subs from the current document
+  try {
+      const frontmatterSubs = parseFrontmatterSubs(documentUri);
+      Object.assign(substitutions, frontmatterSubs);
+  } catch (error) {
+      outputChannel.appendLine(`Error parsing frontmatter subs: ${error}`);
   }
 
   // Add centralized product name subs
@@ -166,6 +228,44 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
       }
   }
 
+  function parseFrontmatterSubs(documentUri: vscode.Uri): SubstitutionVariables {
+      try {
+          // Read the document content
+          const document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === documentUri.fsPath);
+          if (!document) {
+              // If document is not open, try to read from file system
+              const content = fs.readFileSync(documentUri.fsPath, 'utf8');
+              return extractSubsFromFrontmatter(content);
+          }
+
+          return extractSubsFromFrontmatter(document.getText());
+      } catch (error) {
+          outputChannel.appendLine(`Error parsing frontmatter subs from ${documentUri.fsPath}: ${error}`);
+          return {};
+      }
+  }
+
+  function extractSubsFromFrontmatter(content: string): SubstitutionVariables {
+      // Match frontmatter: starts with --- and ends with ---
+      const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
+      if (!frontmatterMatch) {
+          return {};
+      }
+
+      const frontmatter = frontmatterMatch[1];
+      const parsed = parseYaml(frontmatter);
+
+      // Check for 'sub:' field in frontmatter
+      if (parsed && typeof parsed === 'object' && 'sub' in parsed) {
+          const sub = parsed.sub;
+          if (typeof sub === 'object' && sub !== null) {
+              return sub as SubstitutionVariables;
+          }
+      }
+
+      return {};
+  }
+
   function parseYaml(content: string): ParsedYaml {
       // Simple YAML parser for the specific structure we need
       const lines = content.split('\n');
@@ -180,6 +280,7 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
 
           const indent = line.length - line.trimStart().length;
 
+          // Check for both 'subs:' (docset.yml) and 'sub:' (frontmatter)
           if (trimmed === 'subs:') {
               result.subs = {};
               currentSection = result.subs as ParsedYaml;
@@ -187,8 +288,15 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
               continue;
           }
 
+          if (trimmed === 'sub:') {
+              result.sub = {};
+              currentSection = result.sub as ParsedYaml;
+              currentIndent = indent;
+              continue;
+          }
+
           if (currentSection && indent > currentIndent) {
-              // This is a key-value pair in the subs section
+              // This is a key-value pair in the subs/sub section
               const colonIndex = trimmed.indexOf(':');
               if (colonIndex > 0) {
                   const key = trimmed.substring(0, colonIndex).trim();
@@ -204,6 +312,9 @@ export function getSubstitutions(documentUri: vscode.Uri, cachedSubstitutions?: 
 
       return result;
   }
+
+  // Cache the result before returning
+  substitutionCache.set(documentUri.fsPath, orderedSubs);
 
   return orderedSubs;
 }

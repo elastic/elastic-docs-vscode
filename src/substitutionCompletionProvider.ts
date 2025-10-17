@@ -20,6 +20,7 @@
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { getSubstitutions } from './substitutions';
+import { getMutationCompletionItems } from './mutations';
 
 
 interface SubstitutionVariables {
@@ -27,9 +28,6 @@ interface SubstitutionVariables {
 }
 
 export class SubstitutionCompletionProvider implements vscode.CompletionItemProvider {
-    private cachedSubstitutions: Map<string, SubstitutionVariables> = new Map();
-    private lastCacheUpdate: number = 0;
-
     provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
@@ -46,8 +44,26 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
                 return [];
             }
 
-            const partialVariable = substitutionMatch[1];
-            const substitutions = getSubstitutions(document.uri, this.cachedSubstitutions, this.lastCacheUpdate);
+            const content = substitutionMatch[1];
+
+            // Check if we're after a pipe (mutation operator context)
+            const pipeMatch = content.match(/^([a-zA-Z0-9_.-]+)\s*\|\s*([a-zA-Z0-9+.]*)$/);
+            if (pipeMatch) {
+                // We're typing a mutation operator after a pipe
+                const partialOperator = pipeMatch[2];
+                return this.createMutationCompletionItems(partialOperator);
+            }
+
+            // Check if we're after multiple pipes (chained mutations)
+            const chainedMatch = content.match(/^([a-zA-Z0-9_.-]+)(?:\s*\|\s*[a-zA-Z0-9+.]+)*\s*\|\s*([a-zA-Z0-9+.]*)$/);
+            if (chainedMatch) {
+                const partialOperator = chainedMatch[2];
+                return this.createMutationCompletionItems(partialOperator);
+            }
+
+            // Otherwise, suggest variable names
+            const partialVariable = content;
+            const substitutions = getSubstitutions(document.uri);
 
             return this.createCompletionItems(substitutions, partialVariable);
         } catch (error) {
@@ -100,9 +116,39 @@ export class SubstitutionCompletionProvider implements vscode.CompletionItemProv
         return items;
     }
 
-    // Method to clear cache when workspace changes
-    public clearCache(): void {
-        this.cachedSubstitutions.clear();
-        this.lastCacheUpdate = 0;
+    private createMutationCompletionItems(partialOperator: string): vscode.CompletionItem[] {
+        const items: vscode.CompletionItem[] = [];
+        const mutationOperators = getMutationCompletionItems();
+
+        for (const operator of mutationOperators) {
+            // Filter by partial match if user has started typing
+            if (partialOperator && !operator.operator.toLowerCase().includes(partialOperator.toLowerCase())) {
+                continue;
+            }
+
+            const item = new vscode.CompletionItem(
+                operator.operator,
+                vscode.CompletionItemKind.Function
+            );
+
+            item.insertText = operator.operator;
+            item.detail = operator.description;
+
+            // Enhanced documentation with examples
+            const markdown = new vscode.MarkdownString();
+            markdown.appendMarkdown(`**Mutation Operator:** \`${operator.operator}\`\n\n`);
+            markdown.appendMarkdown(`${operator.description}\n\n`);
+            if (operator.example) {
+                markdown.appendMarkdown(`**Example:** \`${operator.example}\`\n\n`);
+            }
+            markdown.appendMarkdown(`**Usage:** \`{{variable | ${operator.operator}}}\``);
+
+            item.documentation = markdown;
+            item.filterText = operator.operator;
+
+            items.push(item);
+        }
+
+        return items;
     }
 }

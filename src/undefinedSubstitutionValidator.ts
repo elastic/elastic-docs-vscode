@@ -19,7 +19,8 @@
 
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
-import { getSubstitutions } from './substitutions';
+import { getSubstitutions, resolveShorthand } from './substitutions';
+import { parseSubstitution } from './mutations';
 
 interface ValidationError {
     range: vscode.Range;
@@ -28,9 +29,9 @@ interface ValidationError {
     code?: string;
 }
 
-export class SubstitutionValidationProvider {
+export class UndefinedSubstitutionValidator {
     public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
-        outputChannel.appendLine(`[SubstitutionValidation] Validating document: ${document.fileName}`);
+        outputChannel.appendLine(`[UndefinedSubstitutionValidator] Validating document: ${document.fileName}`);
         const errors: ValidationError[] = [];
         this.validateContent(errors, document);
 
@@ -48,38 +49,33 @@ export class SubstitutionValidationProvider {
         const text = document.getText();
         const substitutions = getSubstitutions(document.uri);
 
-        // Find frontmatter range to exclude it from validation
-        const frontmatterMatch = text.match(/^---\s*\n[\s\S]*?\n---/);
-        const frontmatterEnd = frontmatterMatch ? frontmatterMatch[0].length : 0;
+        // Match all {{...}} patterns
+        const subRegex = /\{\{([^}]+)\}\}/g;
+        let match;
 
-        // Only validate content after frontmatter
-        const contentToValidate = text.substring(frontmatterEnd);
-        const lines = contentToValidate.split('\n');
-        const lineOffset = text.substring(0, frontmatterEnd).split('\n').length - 1;
+        while ((match = subRegex.exec(text)) !== null) {
+            const fullMatch = match[0];
+            const content = match[1];
+            const startOffset = match.index;
+            const endOffset = startOffset + fullMatch.length;
 
-        const escapeRegExp = (text: string): string => {
-            return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        };
+            // Parse to get variable name (without mutations)
+            const { variableName } = parseSubstitution(content);
 
-        for (const [i, line] of lines.entries()) {
-          for (const [key, value] of Object.entries(substitutions)) {
-            const regex = new RegExp(`(\\W|^)${escapeRegExp(value)}(\\W|$)`, 'gm');
-            let match;
-            while ((match = regex.exec(line)) !== null) {
-              const lineNumber = i + lineOffset;
-              const startChar = match.index + (match[1] ? match[1].length : 0);
-              const endChar = startChar + value.length;
-              const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
-              if (!errors.find(err => err.range.contains(range))) {
+            // Check if this substitution is defined (including shorthand resolution)
+            const resolved = resolveShorthand(variableName, substitutions);
+            if (!resolved) {
+                const startPos = document.positionAt(startOffset);
+                const endPos = document.positionAt(endOffset);
+                const range = new vscode.Range(startPos, endPos);
+
                 errors.push({
-                  range,
-                  message: `Use substitute \`{{${key}}}\` instead of \`${value}\``,
-                  severity: vscode.DiagnosticSeverity.Warning,
-                  code: 'use_sub'
+                    range,
+                    message: `Undefined substitution variable: '${variableName}'`,
+                    severity: vscode.DiagnosticSeverity.Information,
+                    code: 'undefined_sub'
                 });
-              }
             }
-          }
         }
     }
 }
