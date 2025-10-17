@@ -11,7 +11,7 @@ This document provides comprehensive instructions for AI agents to understand, d
 
 ### Core functionality
 
-The extension provides 9 primary features:
+The extension provides 10 primary features:
 1. **Directive autocompletion** - `:::{directive}` blocks
 2. **Parameter autocompletion** - Parameters within directives  
 3. **Role autocompletion** - `{icon}`, `{kbd}`, and `{applies_to}` inline roles
@@ -21,6 +21,7 @@ The extension provides 9 primary features:
 7. **Hover tooltips** - Variable value previews
 8. **Syntax highlighting** - Enhanced highlighting via grammar injection
 9. **Substitution validation** - Warns when literal values should be replaced with substitution variables
+10. **Substitution quick fixes** - One-click code actions to replace literal values with substitution variables
 
 ## Architecture & file structure
 
@@ -35,6 +36,7 @@ src/
 ├── substitutionCompletionProvider.ts # Handles {{variable}} completion
 ├── substitutionHoverProvider.ts     # Provides hover tooltips for variables
 ├── substitutionValidationProvider.ts # Validates substitution usage and suggests improvements
+├── substitutionCodeActionProvider.ts # Provides quick fixes for substitution warnings
 ├── frontmatterCompletionProvider.ts # Handles YAML frontmatter completion
 ├── frontmatterValidationProvider.ts # Validates frontmatter against schema
 ├── directiveDiagnosticProvider.ts   # Validates directive syntax
@@ -168,6 +170,23 @@ All providers are registered in `src/extension.ts` using `vscode.languages.regis
 - Validates content against schemas/rules
 - Shows red squiggles under invalid content
 - Provides hover cards with error descriptions
+
+### 8. SubstitutionCodeActionProvider
+**File**: `src/substitutionCodeActionProvider.ts`  
+**Purpose**: Provides quick fixes for substitution validation warnings
+
+**How it works**:
+- Implements `vscode.CodeActionProvider` interface
+- Detects diagnostics from `SubstitutionValidationProvider` with code `use_sub`
+- Parses diagnostic messages to extract substitution key and original value
+- Creates code actions that replace literal text with `{{variable}}` syntax
+- Marks actions as "preferred" for quick application via keyboard shortcuts
+
+**Key features**:
+- One-click replacement of literal values with substitution variables
+- Accessible via lightbulb icon, "Quick Fix..." menu, or keyboard shortcuts
+- Automatic text replacement preserving document formatting
+- Integration with VS Code's built-in code action system
 
 ## Data structures & configuration
 

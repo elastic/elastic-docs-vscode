@@ -86,14 +86,14 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
         const beforeText = lineText.substring(0, char);
         const afterText = lineText.substring(char);
 
-        // Look for {{ before the cursor
-        const beforeMatch = beforeText.match(/\{\{([a-zA-Z0-9_-]*)$/);
+        // Look for {{ before the cursor (including dots for product.name pattern)
+        const beforeMatch = beforeText.match(/\{\{([a-zA-Z0-9_.-]*)$/);
         if (!beforeMatch) {
             return null;
         }
 
-        // Look for }} after the cursor
-        const afterMatch = afterText.match(/^([a-zA-Z0-9_-]*)\}\}/);
+        // Look for }} after the cursor (including dots for product.name pattern)
+        const afterMatch = afterText.match(/^([a-zA-Z0-9_.-]*)\}\}/);
         if (!afterMatch) {
             return null;
         }
@@ -107,9 +107,9 @@ export class SubstitutionHoverProvider implements vscode.HoverProvider {
             return null;
         }
 
-        // Verify the full pattern is {{variable}}
+        // Verify the full pattern is {{variable}} (including dots for product.name pattern)
         const fullPattern = lineText.substring(variableStart - 2, variableEnd + 2);
-        if (!fullPattern.match(/^\{\{[a-zA-Z0-9_-]*\}\}$/)) {
+        if (!fullPattern.match(/^\{\{[a-zA-Z0-9_.-]*\}\}$/)) {
             return null;
         }
 
