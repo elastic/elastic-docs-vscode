@@ -32,6 +32,7 @@ import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator
 import { substitutionCache } from './substitutions';
 
 import { outputChannel } from './logger';
+import { performanceLogger } from './performanceLogger';
 
 export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
@@ -137,25 +138,40 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(substitutionDiagnosticCollection);
     context.subscriptions.push(undefinedSubDiagnosticCollection);
 
-    // Update diagnostics on save or open only (not on every keystroke)
+    // PERFORMANCE OPTIMIZATION: Debounced diagnostics update
+    let diagnosticsUpdateTimeout: NodeJS.Timeout | undefined;
     const updateDiagnostics = (document: vscode.TextDocument): void => {
-        if (document.languageId === 'markdown') {
-            // Directive diagnostics
-            const diagnostics = diagnosticProvider.provideDiagnostics(document);
-            diagnosticCollection.set(document.uri, diagnostics);
+        if (document.languageId !== 'markdown') return;
 
-            // Frontmatter diagnostics
-            const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
-            frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
-
-            // Substitution diagnostics (suggests using subs instead of literals)
-            const substitutionDiagnostics = substitutionValidator.validateDocument(document);
-            substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
-
-            // Undefined substitution diagnostics (warns about undefined subs)
-            const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
-            undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
+        // Clear existing timeout to debounce rapid updates
+        if (diagnosticsUpdateTimeout) {
+            clearTimeout(diagnosticsUpdateTimeout);
         }
+
+        // Debounce diagnostics updates by 500ms
+        diagnosticsUpdateTimeout = setTimeout(() => {
+            performanceLogger.measureSync(
+                'Extension.updateDiagnostics',
+                () => {
+                    // Directive diagnostics
+                    const diagnostics = diagnosticProvider.provideDiagnostics(document);
+                    diagnosticCollection.set(document.uri, diagnostics);
+
+                    // Frontmatter diagnostics
+                    const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
+                    frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+
+                    // Substitution diagnostics (suggests using subs instead of literals)
+                    const substitutionDiagnostics = substitutionValidator.validateDocument(document);
+                    substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+
+                    // Undefined substitution diagnostics (warns about undefined subs)
+                    const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
+                    undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
+                },
+                { fileName: document.fileName }
+            );
+        }, 500);
     };
 
     // Initial diagnostics for already open documents
@@ -170,31 +186,27 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Listen for document saves
-    context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(document => {
-            if (document.languageId === 'markdown') {
-                // Clear cache for this specific document since frontmatter may have changed
-                substitutionCache.clear();
-                updateDiagnostics(document);
-            }
-        })
-    );
-
-    // Listen for docset.yml changes to clear cache and re-validate all markdown documents
+    // PERFORMANCE OPTIMIZATION: Single document save listener with smart cache management
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
             if (document.fileName.endsWith('docset.yml') || document.fileName.endsWith('_docset.yml')) {
-                // Clear the centralized cache
-                substitutionCache.clear();
-                outputChannel.appendLine('Substitution cache cleared due to docset.yml change');
+                // Docset.yml changed - clear cache and re-validate all markdown documents
+                performanceLogger.measureSync(
+                    'Extension.docsetFileChanged',
+                    () => {
+                        substitutionCache.clear();
+                        outputChannel.appendLine('Substitution cache cleared due to docset.yml change');
 
-                // Re-validate all open markdown documents
-                vscode.workspace.textDocuments.forEach(doc => {
-                    if (doc.languageId === 'markdown') {
-                        updateDiagnostics(doc);
-                    }
-                });
+                        // Re-validate all open markdown documents
+                        const markdownDocs = vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown');
+                        markdownDocs.forEach(doc => updateDiagnostics(doc));
+                    },
+                    { docsetFile: document.fileName, markdownDocCount: vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown').length }
+                );
+            } else if (document.languageId === 'markdown') {
+                // Markdown file saved - only clear cache if frontmatter might have changed
+                // and update diagnostics for this specific document
+                updateDiagnostics(document);
             }
         })
     );
@@ -220,15 +232,7 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Debug: Check grammar loading
-    setTimeout(() => {
-        outputChannel.appendLine('Elastic Docs V3: Checking grammar loading...');
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            outputChannel.appendLine('Elastic Docs V3: Active document is markdown');
-            outputChannel.appendLine(`Elastic Docs V3: Document URI: ${activeEditor.document.uri.toString()}`);
-        }
-    }, 2000);
+    // PERFORMANCE OPTIMIZATION: Removed debug timeout to reduce overhead
 }
 
 function applyColorCustomizations(): void {
@@ -326,23 +330,8 @@ function applyColorCustomizations(): void {
 }
 
 function testGrammarLoading(): void {
-    // Test if our grammar is loaded
-    setTimeout(() => {
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            outputChannel.appendLine('Elastic Docs V3: Testing grammar on active markdown file');
-
-            // Check if our scopes are being applied
-            const document = activeEditor.document;
-            const position = new vscode.Position(0, 0);
-            const token = document.getWordRangeAtPosition(position);
-
-            if (token) {
-                const tokens = document.getText(token);
-                outputChannel.appendLine(`Elastic Docs V3: Found tokens at start: ${tokens}`);
-            }
-        }
-    }, 2000);
+    // PERFORMANCE OPTIMIZATION: Removed debug timeout to reduce overhead
+    // Grammar loading is handled automatically by VS Code
 }
 
 export function deactivate(): void {}

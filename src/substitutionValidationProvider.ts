@@ -18,8 +18,8 @@
  */
 
 import * as vscode from 'vscode';
-import { outputChannel } from './logger';
 import { getSubstitutions } from './substitutions';
+import { performanceLogger } from './performanceLogger';
 
 interface ValidationError {
     range: vscode.Range;
@@ -30,56 +30,107 @@ interface ValidationError {
 
 export class SubstitutionValidationProvider {
     public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
-        outputChannel.appendLine(`[SubstitutionValidation] Validating document: ${document.fileName}`);
-        const errors: ValidationError[] = [];
-        this.validateContent(errors, document);
+        return performanceLogger.measureSync(
+            'SubstitutionValidation.validateDocument',
+            () => {
+                const errors: ValidationError[] = [];
+                this.validateContent(errors, document);
 
-        return errors.map(error => {
-            const diagnostic = new vscode.Diagnostic(error.range, error.message, error.severity);
-            if (error.code) {
-                diagnostic.code = error.code;
-            }
-            diagnostic.source = 'Elastic Docs Substitutions';
-            return diagnostic;
-        });
+                return errors.map(error => {
+                    const diagnostic = new vscode.Diagnostic(error.range, error.message, error.severity);
+                    if (error.code) {
+                        diagnostic.code = error.code;
+                    }
+                    diagnostic.source = 'Elastic Docs Substitutions';
+                    return diagnostic;
+                });
+            },
+            { fileName: document.fileName, lineCount: document.lineCount }
+        );
     }
 
     private validateContent(errors: ValidationError[], document: vscode.TextDocument): void {
-        const text = document.getText();
-        const substitutions = getSubstitutions(document.uri);
+        return performanceLogger.measureSync(
+            'SubstitutionValidation.validateContent',
+            () => {
+                const text = document.getText();
+                const substitutions = getSubstitutions(document.uri);
 
-        // Find frontmatter range to exclude it from validation
-        const frontmatterMatch = text.match(/^---\s*\n[\s\S]*?\n---/);
-        const frontmatterEnd = frontmatterMatch ? frontmatterMatch[0].length : 0;
+                // Find frontmatter range to exclude it from validation
+                const frontmatterMatch = text.match(/^---\s*\n[\s\S]*?\n---/);
+                const frontmatterEnd = frontmatterMatch ? frontmatterMatch[0].length : 0;
 
-        // Only validate content after frontmatter
-        const contentToValidate = text.substring(frontmatterEnd);
-        const lines = contentToValidate.split('\n');
-        const lineOffset = text.substring(0, frontmatterEnd).split('\n').length - 1;
+                // Only validate content after frontmatter
+                const contentToValidate = text.substring(frontmatterEnd);
+                const lines = contentToValidate.split('\n');
+                const lineOffset = text.substring(0, frontmatterEnd).split('\n').length - 1;
 
-        const escapeRegExp = (text: string): string => {
-            return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        };
+                // PERFORMANCE OPTIMIZATION: Pre-compile all regex patterns
+                const compiledPatterns = new Map<string, RegExp>();
+                for (const [key, value] of Object.entries(substitutions)) {
+                    if (value.length > 0) { // Skip empty values
+                        const escapedValue = this.escapeRegExp(value);
+                        compiledPatterns.set(key, new RegExp(`(\\W|^)${escapedValue}(\\W|$)`, 'gm'));
+                    }
+                }
 
-        for (const [i, line] of lines.entries()) {
-          for (const [key, value] of Object.entries(substitutions)) {
-            const regex = new RegExp(`(\\W|^)${escapeRegExp(value)}(\\W|$)`, 'gm');
-            let match;
-            while ((match = regex.exec(line)) !== null) {
-              const lineNumber = i + lineOffset;
-              const startChar = match.index + (match[1] ? match[1].length : 0);
-              const endChar = startChar + value.length;
-              const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
-              if (!errors.find(err => err.range.contains(range))) {
-                errors.push({
-                  range,
-                  message: `Use substitute \`{{${key}}}\` instead of \`${value}\``,
-                  severity: vscode.DiagnosticSeverity.Warning,
-                  code: 'use_sub'
-                });
-              }
+                // PERFORMANCE OPTIMIZATION: Process lines in batches to avoid blocking
+                const BATCH_SIZE = 10;
+                for (let batchStart = 0; batchStart < lines.length; batchStart += BATCH_SIZE) {
+                    const batchEnd = Math.min(batchStart + BATCH_SIZE, lines.length);
+                    const batch = lines.slice(batchStart, batchEnd);
+                    
+                    for (const [i, line] of batch.entries()) {
+                        const actualLineIndex = batchStart + i;
+                        this.validateLine(line, actualLineIndex + lineOffset, compiledPatterns, substitutions, errors);
+                    }
+                }
+            },
+            { 
+                fileName: document.fileName, 
+                substitutionCount: Object.keys(getSubstitutions(document.uri)).length 
             }
-          }
+        );
+    }
+
+    private validateLine(
+        line: string, 
+        lineNumber: number, 
+        compiledPatterns: Map<string, RegExp>, 
+        substitutions: Record<string, string>,
+        errors: ValidationError[]
+    ): void {
+        for (const [key, pattern] of compiledPatterns) {
+            const value = substitutions[key];
+            let match;
+            
+            // Reset regex lastIndex to ensure consistent behavior
+            pattern.lastIndex = 0;
+            
+            while ((match = pattern.exec(line)) !== null) {
+                const startChar = match.index + (match[1] ? match[1].length : 0);
+                const endChar = startChar + value.length;
+                const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
+                
+                // Check for overlapping errors to avoid duplicates
+                if (!errors.some(err => err.range.intersection(range))) {
+                    errors.push({
+                        range,
+                        message: `Use substitute \`{{${key}}}\` instead of \`${value}\``,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'use_sub'
+                    });
+                }
+                
+                // Prevent infinite loops with zero-width matches
+                if (match.index === pattern.lastIndex) {
+                    pattern.lastIndex++;
+                }
+            }
         }
+    }
+
+    private escapeRegExp(text: string): string {
+        return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 }
