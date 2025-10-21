@@ -18,7 +18,6 @@
  */
 
 import * as vscode from 'vscode';
-import { outputChannel } from './logger';
 import { getSubstitutions } from './substitutions';
 import { performanceLogger } from './performanceLogger';
 

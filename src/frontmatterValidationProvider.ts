@@ -18,7 +18,6 @@
  */
 
 import * as vscode from 'vscode';
-import { outputChannel } from './logger';
 import { frontmatterSchema } from './frontmatterSchema';
 import { performanceLogger } from './performanceLogger';
 

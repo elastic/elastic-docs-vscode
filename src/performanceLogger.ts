@@ -17,7 +17,6 @@
  * under the License.
  */
 
-import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 
 interface PerformanceMetrics {
