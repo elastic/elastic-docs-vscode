@@ -232,15 +232,7 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Debug: Check grammar loading
-    setTimeout(() => {
-        outputChannel.appendLine('Elastic Docs V3: Checking grammar loading...');
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            outputChannel.appendLine('Elastic Docs V3: Active document is markdown');
-            outputChannel.appendLine(`Elastic Docs V3: Document URI: ${activeEditor.document.uri.toString()}`);
-        }
-    }, 2000);
+    // PERFORMANCE OPTIMIZATION: Removed debug timeout to reduce overhead
 }
 
 function applyColorCustomizations(): void {
@@ -338,23 +330,8 @@ function applyColorCustomizations(): void {
 }
 
 function testGrammarLoading(): void {
-    // Test if our grammar is loaded
-    setTimeout(() => {
-        const activeEditor = vscode.window.activeTextEditor;
-        if (activeEditor && activeEditor.document.languageId === 'markdown') {
-            outputChannel.appendLine('Elastic Docs V3: Testing grammar on active markdown file');
-
-            // Check if our scopes are being applied
-            const document = activeEditor.document;
-            const position = new vscode.Position(0, 0);
-            const token = document.getWordRangeAtPosition(position);
-
-            if (token) {
-                const tokens = document.getText(token);
-                outputChannel.appendLine(`Elastic Docs V3: Found tokens at start: ${tokens}`);
-            }
-        }
-    }, 2000);
+    // PERFORMANCE OPTIMIZATION: Removed debug timeout to reduce overhead
+    // Grammar loading is handled automatically by VS Code
 }
 
 export function deactivate(): void {}
