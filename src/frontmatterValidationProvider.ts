@@ -20,6 +20,7 @@
 import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { frontmatterSchema } from './frontmatterSchema';
+import { performanceLogger } from './performanceLogger';
 
 interface SchemaProperty {
     type?: string;
@@ -76,56 +77,48 @@ export class FrontmatterValidationProvider {
     }
 
     public validateDocument(document: vscode.TextDocument): vscode.Diagnostic[] {
-        outputChannel.appendLine(`[FrontmatterValidation] Validating document: ${document.fileName}`);
+        return performanceLogger.measureSync(
+            'FrontmatterValidation.validateDocument',
+            () => {
+                const frontmatterRange = this.getFrontmatterRange(document);
+                if (!frontmatterRange) {
+                    return [];
+                }
 
-        const frontmatterRange = this.getFrontmatterRange(document);
-        if (!frontmatterRange) {
-            outputChannel.appendLine(`[FrontmatterValidation] No frontmatter found`);
-            return [];
-        }
+                const errors: ValidationError[] = [];
+                
+                try {
+                    const frontmatterText = document.getText(frontmatterRange);
+                    const lines = frontmatterText.split('\n').slice(1, -1); // Remove --- markers
+                    
+                    // Parse YAML and validate structure
+                    const yamlData = this.parseYamlForValidation(lines, frontmatterRange.start.line + 1);
+                    
+                    // Validate against schema
+                    this.validateFrontmatterData(yamlData, errors, document, frontmatterRange.start.line + 1);
+                    
+                } catch (error) {
+                    // YAML parsing error
+                    errors.push({
+                        range: frontmatterRange,
+                        message: `Invalid YAML syntax: ${error}`,
+                        severity: vscode.DiagnosticSeverity.Error,
+                        code: 'yaml_syntax_error'
+                    });
+                }
 
-        outputChannel.appendLine(`[FrontmatterValidation] Found frontmatter at lines ${frontmatterRange.start.line}-${frontmatterRange.end.line}`);
-
-        const errors: ValidationError[] = [];
-        
-        try {
-            const frontmatterText = document.getText(frontmatterRange);
-            const lines = frontmatterText.split('\n').slice(1, -1); // Remove --- markers
-            
-            outputChannel.appendLine(`[FrontmatterValidation] Raw frontmatter text:`);
-            outputChannel.appendLine(frontmatterText);
-            outputChannel.appendLine(`[FrontmatterValidation] Lines after splitting and removing markers:`);
-            lines.forEach((line, index) => {
-                outputChannel.appendLine(`  ${index}: "${line}"`);
-            });
-            
-            // Parse YAML and validate structure
-            const yamlData = this.parseYamlForValidation(lines, frontmatterRange.start.line + 1);
-            
-            outputChannel.appendLine(`[FrontmatterValidation] Parsed YAML data: ${JSON.stringify(yamlData, null, 2)}`);
-            
-            // Validate against schema
-            this.validateFrontmatterData(yamlData, errors, document, frontmatterRange.start.line + 1);
-            
-        } catch (error) {
-            // YAML parsing error
-            errors.push({
-                range: frontmatterRange,
-                message: `Invalid YAML syntax: ${error}`,
-                severity: vscode.DiagnosticSeverity.Error,
-                code: 'yaml_syntax_error'
-            });
-        }
-
-        // Convert validation errors to diagnostics
-        return errors.map(error => {
-            const diagnostic = new vscode.Diagnostic(error.range, error.message, error.severity);
-            if (error.code) {
-                diagnostic.code = error.code;
-            }
-            diagnostic.source = 'Elastic Docs Frontmatter';
-            return diagnostic;
-        });
+                // Convert validation errors to diagnostics
+                return errors.map(error => {
+                    const diagnostic = new vscode.Diagnostic(error.range, error.message, error.severity);
+                    if (error.code) {
+                        diagnostic.code = error.code;
+                    }
+                    diagnostic.source = 'Elastic Docs Frontmatter';
+                    return diagnostic;
+                });
+            },
+            { fileName: document.fileName }
+        );
     }
 
     private getFrontmatterRange(document: vscode.TextDocument): vscode.Range | null {
@@ -147,117 +140,106 @@ export class FrontmatterValidationProvider {
     }
 
     private parseYamlForValidation(lines: string[], _startLine: number): Record<string, unknown> {
-        const result: Record<string, unknown> = {};
-        const stack: Array<{ obj: Record<string, unknown>; indent: number }> = [{ obj: result, indent: -1 }];
-        
-        outputChannel.appendLine(`[FrontmatterValidation] Starting YAML parsing with ${lines.length} lines`);
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            if (!line.trim()) {
-                outputChannel.appendLine(`  Line ${i}: Empty line, skipping`);
-                continue;
-            }
-            
-            const indent = line.length - line.trimStart().length;
-            const trimmed = line.trim();
-            
-            outputChannel.appendLine(`  Line ${i}: indent=${indent}, trimmed="${trimmed}"`);
-            
-            // Pop stack until we find the right parent
-            while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
-                stack.pop();
-            }
-            
-            const parent = stack[stack.length - 1].obj;
-            
-            if (trimmed.startsWith('- ')) {
-                // Array item - need to find the parent field and ensure it's an array
-                const itemContent = trimmed.substring(2).trim();
+        return performanceLogger.measureSync(
+            'FrontmatterValidation.parseYaml',
+            () => {
+                const result: Record<string, unknown> = {};
+                const stack: Array<{ obj: Record<string, unknown>; indent: number }> = [{ obj: result, indent: -1 }];
                 
-                outputChannel.appendLine(`    Array item: content="${itemContent}"`);
-                
-                // We need to look in the parent of the current stack frame
-                // The array items should be added to the parent that contains the field name
-                let arrayParent = null;
-                let arrayKey = null;
-                
-                // Walk up the stack to find where to put this array item
-                for (let stackIdx = stack.length - 1; stackIdx >= 0; stackIdx--) {
-                    const stackFrame = stack[stackIdx];
-                    const keys = Object.keys(stackFrame.obj);
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
                     
-                    outputChannel.appendLine(`    Checking stack level ${stackIdx}: ${JSON.stringify(keys)}`);
-                    
-                    for (let j = keys.length - 1; j >= 0; j--) {
-                        const key = keys[j];
-                        const value = stackFrame.obj[key];
-
-                        if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0) {
-                            // This empty object should be converted to an array
-                            outputChannel.appendLine(`    Converting empty object "${key}" to array`);
-                            stackFrame.obj[key] = [];
-                            arrayParent = stackFrame.obj;
-                            arrayKey = key;
-                            break;
-                        } else if (Array.isArray(value)) {
-                            // Already an array
-                            outputChannel.appendLine(`    Found existing array "${key}"`);
-                            arrayParent = stackFrame.obj;
-                            arrayKey = key;
-                            break;
-                        }
+                    if (!line.trim()) {
+                        continue;
                     }
                     
-                    if (arrayKey) break;
-                }
-                
-                outputChannel.appendLine(`    Selected array key: "${arrayKey}"`);
-                
-                if (arrayKey && arrayParent && Array.isArray(arrayParent[arrayKey])) {
-                    if (itemContent.includes(':')) {
-                        // Object in array - parse key-value pairs
-                        const obj: Record<string, unknown> = {};
-                        const colonIndex = itemContent.indexOf(':');
-                        const objKey = itemContent.substring(0, colonIndex).trim();
-                        const objValue = itemContent.substring(colonIndex + 1).trim();
+                    const indent = line.length - line.trimStart().length;
+                    const trimmed = line.trim();
+                    
+                    // Pop stack until we find the right parent
+                    while (stack.length > 1 && stack[stack.length - 1].indent >= indent) {
+                        stack.pop();
+                    }
+                    
+                    const parent = stack[stack.length - 1].obj;
+                    
+                    if (trimmed.startsWith('- ')) {
+                        // Array item - need to find the parent field and ensure it's an array
+                        const itemContent = trimmed.substring(2).trim();
+                        
+                        // We need to look in the parent of the current stack frame
+                        // The array items should be added to the parent that contains the field name
+                        let arrayParent = null;
+                        let arrayKey = null;
+                        
+                        // Walk up the stack to find where to put this array item
+                        for (let stackIdx = stack.length - 1; stackIdx >= 0; stackIdx--) {
+                            const stackFrame = stack[stackIdx];
+                            const keys = Object.keys(stackFrame.obj);
+                            
+                            for (let j = keys.length - 1; j >= 0; j--) {
+                                const key = keys[j];
+                                const value = stackFrame.obj[key];
 
-                        if (objValue !== '') {
-                            obj[objKey] = this.parseValue(objValue);
+                                if (typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value as object).length === 0) {
+                                    // This empty object should be converted to an array
+                                    stackFrame.obj[key] = [];
+                                    arrayParent = stackFrame.obj;
+                                    arrayKey = key;
+                                    break;
+                                } else if (Array.isArray(value)) {
+                                    // Already an array
+                                    arrayParent = stackFrame.obj;
+                                    arrayKey = key;
+                                    break;
+                                }
+                            }
+                            
+                            if (arrayKey) break;
+                        }
+                        
+                        if (arrayKey && arrayParent && Array.isArray(arrayParent[arrayKey])) {
+                            if (itemContent.includes(':')) {
+                                // Object in array - parse key-value pairs
+                                const obj: Record<string, unknown> = {};
+                                const colonIndex = itemContent.indexOf(':');
+                                const objKey = itemContent.substring(0, colonIndex).trim();
+                                const objValue = itemContent.substring(colonIndex + 1).trim();
+
+                                if (objValue !== '') {
+                                    obj[objKey] = this.parseValue(objValue);
+                                } else {
+                                    obj[objKey] = '';
+                                }
+
+                                (arrayParent[arrayKey] as unknown[]).push(obj);
+                                stack.push({ obj, indent });
+                            } else {
+                                // Simple value in array
+                                (arrayParent[arrayKey] as unknown[]).push(itemContent);
+                            }
+                        }
+                    } else if (trimmed.includes(':')) {
+                        // Key-value pair
+                        const colonIndex = trimmed.indexOf(':');
+                        const key = trimmed.substring(0, colonIndex).trim();
+                        const value = trimmed.substring(colonIndex + 1).trim();
+                        
+                        if (value === '') {
+                            // Object or array
+                            parent[key] = {};
+                            stack.push({ obj: parent[key] as Record<string, unknown>, indent });
                         } else {
-                            obj[objKey] = '';
+                            // Simple value
+                            parent[key] = this.parseValue(value);
                         }
-
-                        (arrayParent[arrayKey] as unknown[]).push(obj);
-                        stack.push({ obj, indent });
-                    } else {
-                        // Simple value in array
-                        (arrayParent[arrayKey] as unknown[]).push(itemContent);
                     }
                 }
-            } else if (trimmed.includes(':')) {
-                // Key-value pair
-                const colonIndex = trimmed.indexOf(':');
-                const key = trimmed.substring(0, colonIndex).trim();
-                const value = trimmed.substring(colonIndex + 1).trim();
                 
-                outputChannel.appendLine(`    Key-value: key="${key}", value="${value}"`);
-                
-                if (value === '') {
-                    // Object or array
-                    outputChannel.appendLine(`    Creating empty object for key "${key}"`);
-                    parent[key] = {};
-                    stack.push({ obj: parent[key] as Record<string, unknown>, indent });
-                } else {
-                    // Simple value
-                    outputChannel.appendLine(`    Setting "${key}" = "${value}"`);
-                    parent[key] = this.parseValue(value);
-                }
-            }
-        }
-        
-        return result;
+                return result;
+            },
+            { lineCount: lines.length }
+        );
     }
 
     private getLastArrayKey(obj: Record<string, unknown>): string | null {
@@ -513,8 +495,6 @@ export class FrontmatterValidationProvider {
     }
 
     private validateProducts(products: unknown[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
-        outputChannel.appendLine(`[FrontmatterValidation] Validating ${products.length} products`);
-        
         // Get valid product IDs from schema
         const productsSchema = this.schema.properties.products;
         const validProductIds: string[] = [];
@@ -522,9 +502,6 @@ export class FrontmatterValidationProvider {
         if (productsSchema && productsSchema.items && productsSchema.items.properties && productsSchema.items.properties.id && productsSchema.items.properties.id.enum) {
             validProductIds.push(...productsSchema.items.properties.id.enum);
         }
-        
-        outputChannel.appendLine(`[FrontmatterValidation] Valid product IDs: ${validProductIds.join(', ')}`);
-        outputChannel.appendLine(`[FrontmatterValidation] Products to validate: ${JSON.stringify(products)}`);
 
         for (let i = 0; i < products.length; i++) {
             const product = products[i];
@@ -546,23 +523,16 @@ export class FrontmatterValidationProvider {
             const productId = productObj.id as string;
 
             if (!validProductIds.includes(productId)) {
-                outputChannel.appendLine(`[FrontmatterValidation] Invalid product ID found: '${productId}' at index ${i}`);
-
                 // Find the specific id value in the array item
                 const idRange = this.findProductIdRange(productId, i, document, startLine);
                 if (idRange) {
-                    outputChannel.appendLine(`[FrontmatterValidation] Found range for invalid product ID: line ${idRange.start.line}, chars ${idRange.start.character}-${idRange.end.character}`);
                     errors.push({
                         range: idRange,
                         message: `Invalid product ID '${productId}'. Valid IDs: ${validProductIds.join(', ')}`,
                         severity: vscode.DiagnosticSeverity.Error,
                         code: 'invalid_product_id'
                     });
-                } else {
-                    outputChannel.appendLine(`[FrontmatterValidation] Could not find range for invalid product ID: '${productId}'`);
                 }
-            } else {
-                outputChannel.appendLine(`[FrontmatterValidation] Valid product ID: '${productId}'`);
             }
         }
     }
