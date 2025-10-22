@@ -34,60 +34,74 @@ export class SubstitutionCodeActionProvider implements vscode.CodeActionProvider
         context: vscode.CodeActionContext,
         _token: vscode.CancellationToken
     ): vscode.ProviderResult<(vscode.CodeAction | vscode.Command)[]> {
-        const codeActions: vscode.CodeAction[] = [];
+        try {
+            const codeActions: vscode.CodeAction[] = [];
 
-        // Look for substitution diagnostics
-        for (const diagnostic of context.diagnostics) {
-            if (diagnostic.source === 'Elastic Docs Substitutions' && diagnostic.code === 'use_sub') {
-                const codeAction = this.createSubstitutionFixAction(document, diagnostic);
-                if (codeAction) {
-                    codeActions.push(codeAction);
+            // Look for substitution diagnostics
+            for (const diagnostic of context.diagnostics) {
+                try {
+                    if (diagnostic.source === 'Elastic Docs Substitutions' && diagnostic.code === 'use_sub') {
+                        const codeAction = this.createSubstitutionFixAction(document, diagnostic);
+                        if (codeAction) {
+                            codeActions.push(codeAction);
+                        }
+                    }
+                } catch (err) {
+                    outputChannel.appendLine(`[SubstitutionCodeAction] Error processing diagnostic: ${err}`);
                 }
             }
-        }
 
-        return codeActions;
+            return codeActions;
+        } catch (err) {
+            outputChannel.appendLine(`[SubstitutionCodeAction] Fatal error in provideCodeActions: ${err}`);
+            return [];
+        }
     }
 
     private createSubstitutionFixAction(
         document: vscode.TextDocument,
         diagnostic: vscode.Diagnostic
     ): vscode.CodeAction | undefined {
-        // Extract the substitution key from the diagnostic message
-        // Message format: "Use substitute `{{key}}` instead of `value`"
-        const messageMatch = diagnostic.message.match(/Use substitute `\{\{([^}]+)\}\}` instead of `([^`]+)`/);
-        
-        if (!messageMatch) {
-            outputChannel.appendLine(`[SubstitutionCodeAction] Could not parse diagnostic message: ${diagnostic.message}`);
+        try {
+            // Extract the substitution key from the diagnostic message
+            // Message format: "Use substitute `{{key}}` instead of `value`"
+            const messageMatch = diagnostic.message.match(/Use substitute `\{\{([^}]+)\}\}` instead of `([^`]+)`/);
+
+            if (!messageMatch) {
+                outputChannel.appendLine(`[SubstitutionCodeAction] Could not parse diagnostic message: ${diagnostic.message}`);
+                return undefined;
+            }
+
+            const substitutionKey = messageMatch[1];
+            const originalValue = messageMatch[2];
+
+            // Create a code action
+            const fix = new vscode.CodeAction(
+                `Replace with {{${substitutionKey}}}`,
+                vscode.CodeActionKind.QuickFix
+            );
+
+            fix.diagnostics = [diagnostic];
+            fix.isPreferred = true;
+
+            // Create the edit that replaces the text
+            const edit = new vscode.WorkspaceEdit();
+            edit.replace(
+                document.uri,
+                diagnostic.range,
+                `{{${substitutionKey}}}`
+            );
+
+            fix.edit = edit;
+
+            outputChannel.appendLine(
+                `[SubstitutionCodeAction] Created fix: Replace "${originalValue}" with "{{${substitutionKey}}}" at ${diagnostic.range.start.line}:${diagnostic.range.start.character}`
+            );
+
+            return fix;
+        } catch (err) {
+            outputChannel.appendLine(`[SubstitutionCodeAction] Error creating fix action: ${err}`);
             return undefined;
         }
-
-        const substitutionKey = messageMatch[1];
-        const originalValue = messageMatch[2];
-
-        // Create a code action
-        const fix = new vscode.CodeAction(
-            `Replace with {{${substitutionKey}}}`,
-            vscode.CodeActionKind.QuickFix
-        );
-        
-        fix.diagnostics = [diagnostic];
-        fix.isPreferred = true;
-
-        // Create the edit that replaces the text
-        const edit = new vscode.WorkspaceEdit();
-        edit.replace(
-            document.uri,
-            diagnostic.range,
-            `{{${substitutionKey}}}`
-        );
-        
-        fix.edit = edit;
-
-        outputChannel.appendLine(
-            `[SubstitutionCodeAction] Created fix: Replace "${originalValue}" with "{{${substitutionKey}}}" at ${diagnostic.range.start.line}:${diagnostic.range.start.character}`
-        );
-
-        return fix;
     }
 }

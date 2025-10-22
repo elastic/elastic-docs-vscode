@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs V3 Utilities",
   "description": "VSCode extension for Elastic Docs V3 Markdown authoring with directive autocompletion",
-  "version": "0.11.0",
+  "version": "0.11.13",
   "publisher": "elastic",
   "repository": {
     "type": "git",
@@ -48,6 +48,10 @@
       {
         "command": "elastic-docs-v3.replaceEntireLine",
         "title": "Replace entire line"
+      },
+      {
+        "command": "elastic-docs-v3.refreshVersions",
+        "title": "Elastic Docs: Refresh Versions Cache"
       }
     ]
   },
@@ -62,7 +66,6 @@
     "copyright:check": "node scripts/check-copyright.js",
     "copyright:fix": "node scripts/check-copyright.js --fix"
   },
-
   "devDependencies": {
     "@types/node": "18.x",
     "@types/vscode": "^1.74.0",
