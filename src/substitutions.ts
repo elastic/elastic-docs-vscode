@@ -23,6 +23,7 @@ import * as fs from 'fs';
 import { outputChannel } from './logger';
 import { PRODUCTS } from './products';
 import { performanceLogger } from './performanceLogger';
+import { VersionsCache } from './versionsCache';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -50,6 +51,10 @@ class SubstitutionCache {
 
     has(key: string): boolean {
         return this.cache.has(key);
+    }
+
+    delete(key: string): boolean {
+        return this.cache.delete(key);
     }
 }
 
@@ -126,6 +131,18 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
           Object.assign(substitutions, frontmatterSubs);
       } catch (error) {
           outputChannel.appendLine(`Error parsing frontmatter subs: ${error}`);
+      }
+
+      // Add versions from the remote versions.yml cache
+      try {
+          const versionsCache = VersionsCache.getInstance();
+          const versions = versionsCache.getVersions();
+          for (const [key, value] of Object.entries(versions)) {
+              substitutions[`version.${key}`] = value;
+          }
+      } catch (error) {
+          // Fail silently as requested
+          outputChannel.appendLine(`Error loading versions from cache: ${error}`);
       }
 
       // Add centralized product name subs

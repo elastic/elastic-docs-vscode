@@ -79,16 +79,16 @@ export class SubstitutionValidationProvider {
                 for (let batchStart = 0; batchStart < lines.length; batchStart += BATCH_SIZE) {
                     const batchEnd = Math.min(batchStart + BATCH_SIZE, lines.length);
                     const batch = lines.slice(batchStart, batchEnd);
-                    
+
                     for (const [i, line] of batch.entries()) {
                         const actualLineIndex = batchStart + i;
                         this.validateLine(line, actualLineIndex + lineOffset, compiledPatterns, substitutions, errors);
                     }
                 }
             },
-            { 
-                fileName: document.fileName, 
-                substitutionCount: Object.keys(getSubstitutions(document.uri)).length 
+            {
+                fileName: document.fileName,
+                substitutionCount: Object.keys(getSubstitutions(document.uri)).length
             }
         );
     }

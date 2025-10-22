@@ -30,6 +30,7 @@ import { SubstitutionValidationProvider } from './substitutionValidationProvider
 import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
 import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
 import { substitutionCache } from './substitutions';
+import { VersionsCache } from './versionsCache';
 
 import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
@@ -38,6 +39,16 @@ export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
     outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
     outputChannel.appendLine('Registering completion providers...');
+
+    // Initialize versions cache from GitHub (fails silently if unable to fetch)
+    const versionsCache = VersionsCache.getInstance();
+    versionsCache.initialize().then(() => {
+        outputChannel.appendLine('Versions cache initialized from GitHub');
+        // Clear substitution cache to ensure versions are picked up
+        substitutionCache.clear();
+    }).catch(err => {
+        outputChannel.appendLine(`Failed to initialize versions cache: ${err}`);
+    });
 
     // Apply color customizations programmatically
     applyColorCustomizations();
@@ -150,63 +161,109 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // Debounce diagnostics updates by 500ms
         diagnosticsUpdateTimeout = setTimeout(() => {
-            performanceLogger.measureSync(
-                'Extension.updateDiagnostics',
-                () => {
-                    // Directive diagnostics
-                    const diagnostics = diagnosticProvider.provideDiagnostics(document);
-                    diagnosticCollection.set(document.uri, diagnostics);
+            try {
+                performanceLogger.measureSync(
+                    'Extension.updateDiagnostics',
+                    () => {
+                        try {
+                            // Directive diagnostics
+                            const diagnostics = diagnosticProvider.provideDiagnostics(document);
+                            diagnosticCollection.set(document.uri, diagnostics);
+                        } catch (err) {
+                            outputChannel.appendLine(`Error in directive diagnostics: ${err}`);
+                        }
 
-                    // Frontmatter diagnostics
-                    const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
-                    frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+                        try {
+                            // Frontmatter diagnostics
+                            const frontmatterDiagnostics = frontmatterValidator.validateDocument(document);
+                            frontmatterDiagnosticCollection.set(document.uri, frontmatterDiagnostics);
+                        } catch (err) {
+                            outputChannel.appendLine(`Error in frontmatter diagnostics: ${err}`);
+                        }
 
-                    // Substitution diagnostics (suggests using subs instead of literals)
-                    const substitutionDiagnostics = substitutionValidator.validateDocument(document);
-                    substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+                        try {
+                            // Substitution diagnostics (suggests using subs instead of literals)
+                            const substitutionDiagnostics = substitutionValidator.validateDocument(document);
+                            substitutionDiagnosticCollection.set(document.uri, substitutionDiagnostics);
+                        } catch (err) {
+                            outputChannel.appendLine(`Error in substitution diagnostics: ${err}`);
+                        }
 
-                    // Undefined substitution diagnostics (warns about undefined subs)
-                    const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
-                    undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
-                },
-                { fileName: document.fileName }
-            );
+                        try {
+                            // Undefined substitution diagnostics (warns about undefined subs)
+                            const undefinedSubDiagnostics = undefinedSubstitutionValidator.validateDocument(document);
+                            undefinedSubDiagnosticCollection.set(document.uri, undefinedSubDiagnostics);
+                        } catch (err) {
+                            outputChannel.appendLine(`Error in undefined substitution diagnostics: ${err}`);
+                        }
+                    },
+                    { fileName: document.fileName }
+                );
+            } catch (err) {
+                outputChannel.appendLine(`Fatal error in updateDiagnostics: ${err}`);
+            }
         }, 500);
     };
 
     // Initial diagnostics for already open documents
     if (vscode.window.activeTextEditor) {
-        updateDiagnostics(vscode.window.activeTextEditor.document);
+        try {
+            updateDiagnostics(vscode.window.activeTextEditor.document);
+        } catch (err) {
+            outputChannel.appendLine(`Error updating diagnostics for active editor: ${err}`);
+        }
     }
 
     // Listen for document opens
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(document => {
-            updateDiagnostics(document);
+            try {
+                updateDiagnostics(document);
+            } catch (err) {
+                outputChannel.appendLine(`Error updating diagnostics on document open: ${err}`);
+            }
         })
     );
 
     // PERFORMANCE OPTIMIZATION: Single document save listener with smart cache management
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(document => {
-            if (document.fileName.endsWith('docset.yml') || document.fileName.endsWith('_docset.yml')) {
-                // Docset.yml changed - clear cache and re-validate all markdown documents
-                performanceLogger.measureSync(
-                    'Extension.docsetFileChanged',
-                    () => {
-                        substitutionCache.clear();
-                        outputChannel.appendLine('Substitution cache cleared due to docset.yml change');
+            try {
+                if (document.fileName.endsWith('docset.yml') || document.fileName.endsWith('_docset.yml')) {
+                    // Docset.yml changed - clear cache and re-validate all markdown documents
+                    performanceLogger.measureSync(
+                        'Extension.docsetFileChanged',
+                        () => {
+                            substitutionCache.clear();
+                            outputChannel.appendLine('Substitution cache cleared due to docset.yml change');
 
-                        // Re-validate all open markdown documents
-                        const markdownDocs = vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown');
-                        markdownDocs.forEach(doc => updateDiagnostics(doc));
-                    },
-                    { docsetFile: document.fileName, markdownDocCount: vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown').length }
-                );
-            } else if (document.languageId === 'markdown') {
-                // Markdown file saved - only clear cache if frontmatter might have changed
-                // and update diagnostics for this specific document
-                updateDiagnostics(document);
+                            // Re-validate all open markdown documents
+                            const markdownDocs = vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown');
+                            markdownDocs.forEach(doc => {
+                                try {
+                                    updateDiagnostics(doc);
+                                } catch (err) {
+                                    outputChannel.appendLine(`Error updating diagnostics for ${doc.fileName}: ${err}`);
+                                }
+                            });
+                        },
+                        { docsetFile: document.fileName, markdownDocCount: vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown').length }
+                    );
+                } else if (document.languageId === 'markdown') {
+                    // Markdown file saved - clear cache for this document since frontmatter might have changed
+                    // and update diagnostics for this specific document
+                    try {
+                        if (substitutionCache.has(document.uri.fsPath)) {
+                            substitutionCache.delete(document.uri.fsPath);
+                            outputChannel.appendLine(`Substitution cache cleared for ${document.fileName}`);
+                        }
+                        updateDiagnostics(document);
+                    } catch (err) {
+                        outputChannel.appendLine(`Error processing markdown save for ${document.fileName}: ${err}`);
+                    }
+                }
+            } catch (err) {
+                outputChannel.appendLine(`Error in save document handler: ${err}`);
             }
         })
     );
@@ -231,6 +288,57 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         })
     );
+
+    // Register command to manually refresh versions cache
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.refreshVersions', async () => {
+            try {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Refreshing versions from GitHub...",
+                    cancellable: false
+                }, async () => {
+                    // Clear the cache first to force a fresh fetch
+                    versionsCache.clear();
+
+                    // Fetch new versions
+                    await versionsCache.initialize();
+
+                    // Clear substitution cache to ensure new versions are picked up
+                    substitutionCache.clear();
+
+                    // Re-validate all open markdown documents
+                    const markdownDocs = vscode.workspace.textDocuments.filter(doc => doc.languageId === 'markdown');
+                    markdownDocs.forEach(doc => updateDiagnostics(doc));
+                });
+
+                // Get version count for confirmation message
+                const versions = versionsCache.getVersions();
+                const count = Object.keys(versions).length;
+
+                vscode.window.showInformationMessage(
+                    `Versions cache refreshed successfully! Loaded ${count} version${count !== 1 ? 's' : ''}.`
+                );
+                outputChannel.appendLine(`Versions cache manually refreshed: ${count} versions loaded`);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to refresh versions cache: ${error}`);
+                outputChannel.appendLine(`Error refreshing versions cache: ${error}`);
+            }
+        })
+    );
+
+    // Periodically refresh versions cache (every hour)
+    const refreshInterval = setInterval(() => {
+        versionsCache.refreshIfNeeded().then(() => {
+            // Clear substitution cache when versions are refreshed
+            substitutionCache.clear();
+        });
+    }, 1000 * 60 * 60); // 1 hour
+
+    // Clean up interval on deactivation
+    context.subscriptions.push({
+        dispose: () => clearInterval(refreshInterval)
+    });
 
     // PERFORMANCE OPTIMIZATION: Removed debug timeout to reduce overhead
 }
