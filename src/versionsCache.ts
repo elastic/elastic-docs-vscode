@@ -18,6 +18,7 @@
  */
 
 import * as https from 'https';
+import { IncomingMessage } from 'http';
 import { outputChannel } from './logger';
 
 const VERSIONS_URL = 'https://raw.githubusercontent.com/elastic/docs-builder/main/config/versions.yml';
@@ -117,8 +118,8 @@ export class VersionsCache {
         });
     }
 
-    private handleResponse(resolve: () => void, initialData: string): (res: https.IncomingMessage) => void {
-        return (res: https.IncomingMessage) => {
+    private handleResponse(resolve: () => void, initialData: string): (res: IncomingMessage) => void {
+        return (res: IncomingMessage) => {
             let data = initialData;
             
             res.on('data', (chunk: Buffer) => {
