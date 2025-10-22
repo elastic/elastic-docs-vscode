@@ -18,6 +18,7 @@
  */
 
 import * as https from 'https';
+import { outputChannel } from './logger';
 
 const VERSIONS_URL = 'https://raw.githubusercontent.com/elastic/docs-builder/main/config/versions.yml';
 const CACHE_DURATION_MS = 1000 * 60 * 60; // 1 hour
@@ -97,7 +98,7 @@ export class VersionsCache {
     private async doFetch(): Promise<void> {
         return new Promise<void>((resolve) => {
             https.get(VERSIONS_URL, (res) => {
-                let data = '';
+                const data = '';
 
                 // Handle redirects
                 if (res.statusCode === 301 || res.statusCode === 302) {
@@ -110,16 +111,18 @@ export class VersionsCache {
                 this.handleResponse(resolve, data)(res);
             }).on('error', (err) => {
                 // Fail silently as requested
-                console.error('Failed to fetch versions.yml:', err.message);
+                outputChannel.appendLine(`Failed to fetch versions.yml: ${err.message}`);
                 resolve();
             });
         });
     }
 
-    private handleResponse(resolve: () => void, data: string) {
-        return (res: any) => {
-            res.on('data', (chunk: string) => {
-                data += chunk;
+    private handleResponse(resolve: () => void, initialData: string): (res: https.IncomingMessage) => void {
+        return (res: https.IncomingMessage) => {
+            let data = initialData;
+            
+            res.on('data', (chunk: Buffer) => {
+                data += chunk.toString();
             });
 
             res.on('end', () => {
@@ -130,7 +133,7 @@ export class VersionsCache {
                     this.lastFetchTime = Date.now();
                 } catch (err) {
                     // Fail silently as requested
-                    console.error('Failed to parse versions.yml:', err);
+                    outputChannel.appendLine(`Failed to parse versions.yml: ${err}`);
                 }
                 resolve();
             });
