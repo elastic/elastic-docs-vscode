@@ -4,12 +4,32 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      publishMS:
+        description: "Publish to the Microsoft Marketplace"
+        type: boolean
+        required: true
+        default: true
+      publishOVSX:
+        description: "Publish to Open VSX"
+        type: boolean
+        required: true
+        default: true
+      publishGH:
+        description: "Publish to GitHub Releases"
+        type: boolean
+        required: true
+        default: true
 
 jobs:
-  release:
+  package:
+    name: Package Extension
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    outputs:
+      packageName: ${{ steps.setup.outputs.packageName }}
+      version: ${{ steps.get_version.outputs.VERSION }}
+      versionNumber: ${{ steps.get_version.outputs.VERSION_NUMBER }}
     
     steps:
       - name: Checkout code
@@ -30,13 +50,22 @@ jobs:
       - name: Install vsce
         run: npm install -g @vscode/vsce
         
-      - name: Get version from tag
+      - name: Get version from tag or package.json
         id: get_version
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "push" ]; then
+            # Tag-based release
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+            echo "VERSION_NUMBER=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            # Manual workflow dispatch
+            PACKAGE_VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=v$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+            echo "VERSION_NUMBER=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
+          fi
           
-      - name: Validate version consistency
+      - name: Validate version consistency (tag releases only)
+        if: github.event_name == 'push'
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           TAG_VERSION=${{ steps.get_version.outputs.VERSION_NUMBER }}
@@ -45,9 +74,91 @@ jobs:
             exit 1
           fi
           echo "✅ Version validation passed: $PACKAGE_VERSION"
+
+      - name: Setup package name
+        id: setup
+        run: |
+          PACKAGE_NAME="elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix"
+          echo "packageName=$PACKAGE_NAME" >> $GITHUB_OUTPUT
         
       - name: Package extension
-        run: vsce package
+        run: vsce package --out ${{ steps.setup.outputs.packageName }}
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.setup.outputs.packageName }}
+          path: ./${{ steps.setup.outputs.packageName }}
+          if-no-files-found: error
+
+  publishMS:
+    name: Publish to VS Code Marketplace
+    runs-on: ubuntu-latest
+    needs: package
+    if: |
+      (github.event_name == 'push') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publishMS == 'true')
+    
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.package.outputs.packageName }}
+          
+      - name: Publish to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          echo "📦 Publishing extension to VS Code Marketplace..."
+          if [ -z "$VSCE_PAT" ]; then
+            echo "❌ Error: VSCE_PAT secret is not set"
+            exit 1
+          fi
+          npx vsce publish --packagePath ./${{ needs.package.outputs.packageName }}
+          echo "✅ Successfully published to VS Code Marketplace!"
+
+  publishOVSX:
+    name: Publish to Open VSX
+    runs-on: ubuntu-latest
+    needs: package
+    if: |
+      (github.event_name == 'push') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publishOVSX == 'true')
+    
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.package.outputs.packageName }}
+          
+      - name: Publish to Open VSX
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          echo "📦 Publishing extension to Open VSX..."
+          if [ -z "$OVSX_PAT" ]; then
+            echo "❌ Error: OVSX_PAT secret is not set"
+            exit 1
+          fi
+          npx ovsx publish ./${{ needs.package.outputs.packageName }} -p $OVSX_PAT
+          echo "✅ Successfully published to Open VSX!"
+
+  publishGH:
+    name: Publish to GitHub Releases
+    runs-on: ubuntu-latest
+    needs: package
+    if: |
+      (github.event_name == 'push') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publishGH == 'true')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.package.outputs.packageName }}
         
       - name: Generate release notes
         id: release_notes
@@ -64,26 +175,13 @@ jobs:
           echo "$COMMITS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Publish to VS Code Marketplace
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          echo "📦 Publishing extension to VS Code Marketplace..."
-          echo "Package: ./elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix"
-          if [ -z "$VSCE_PAT" ]; then
-            echo "❌ Error: VSCE_PAT secret is not set"
-            exit 1
-          fi
-          vsce publish --packagePath ./elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix
-          echo "✅ Successfully published to VS Code Marketplace!"
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_version.outputs.VERSION }}
-          name: Release ${{ steps.get_version.outputs.VERSION }}
+          tag_name: ${{ needs.package.outputs.version }}
+          name: Release ${{ needs.package.outputs.version }}
           body: ${{ steps.release_notes.outputs.body }}
           files: |
-            ./elastic-docs-v3-utilities-${{ steps.get_version.outputs.VERSION_NUMBER }}.vsix
+            ./${{ needs.package.outputs.packageName }}
           draft: false
           prerelease: false
