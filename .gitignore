@@ -4,8 +4,9 @@
 *.js
 *.js.map
 
-# But include scripts
+# But include scripts and build tools
 !scripts/**/*.js
+!esbuild.js
 
 # Dependencies
 node_modules/
