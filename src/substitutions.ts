@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { PRODUCTS } from './products';
 import { performanceLogger } from './performanceLogger';
-import { pathUtils, existsSync, readFileSync, isDirectorySync } from './fileSystem';
+import { pathUtils, existsSync, readFileSync, isDirectorySync, isWeb, readFile, exists } from './fileSystem';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -54,6 +54,53 @@ class SubstitutionCache {
 
 // Export a singleton cache instance
 export const substitutionCache = new SubstitutionCache();
+
+// Store for pre-loaded docset files in web environment
+const preloadedDocsets = new Map<string, SubstitutionVariables>();
+
+/**
+ * Initialize substitutions for web environment by pre-loading docset files
+ * This should be called during extension activation
+ */
+export async function initializeSubstitutionsForWeb(): Promise<void> {
+    if (!isWeb) {
+        return; // Only needed in web environment
+    }
+
+    outputChannel.appendLine('[Substitutions] Initializing for web environment...');
+
+    try {
+        // Find all docset.yml files in the workspace
+        const docsetFiles = await vscode.workspace.findFiles('**/docset.yml', '**/node_modules/**', 10);
+        const _docsetFiles = await vscode.workspace.findFiles('**/_docset.yml', '**/node_modules/**', 10);
+        const allDocsetFiles = [...docsetFiles, ..._docsetFiles];
+
+        outputChannel.appendLine(`[Substitutions] Found ${allDocsetFiles.length} docset files in workspace`);
+
+        for (const docsetUri of allDocsetFiles) {
+            try {
+                outputChannel.appendLine(`[Substitutions] Pre-loading: ${docsetUri.toString()}`);
+                const content = await readFile(docsetUri);
+                const parsed = parseYaml(content);
+                
+                if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
+                    const subs = parsed.subs;
+                    if (typeof subs === 'object' && subs !== null) {
+                        const result = subs as SubstitutionVariables;
+                        preloadedDocsets.set(docsetUri.fsPath, result);
+                        outputChannel.appendLine(`[Substitutions] Loaded ${Object.keys(result).length} substitutions from ${docsetUri.fsPath}`);
+                    }
+                }
+            } catch (error) {
+                outputChannel.appendLine(`[Substitutions] Error loading ${docsetUri.toString()}: ${error}`);
+            }
+        }
+
+        outputChannel.appendLine(`[Substitutions] Web initialization complete. Loaded ${preloadedDocsets.size} docset files.`);
+    } catch (error) {
+        outputChannel.appendLine(`[Substitutions] Error during web initialization: ${error}`);
+    }
+}
 
 /**
  * Resolves a shorthand variable name (e.g., ".elasticsearch") to its full form ("product.elasticsearch")
@@ -105,11 +152,17 @@ export function getSubstitutions(documentUri: vscode.Uri): SubstitutionVariables
 
       const substitutions: SubstitutionVariables = {};
 
+      // Log environment for debugging
+      outputChannel.appendLine(`[Substitutions] Environment: ${isWeb ? 'WEB' : 'NODE'}`);
+      outputChannel.appendLine(`[Substitutions] Document URI: ${documentUri.toString()}`);
+
       try {
           // Find all docset.yml files in the workspace
           const docsetFiles = findDocsetFiles(documentUri);
+          outputChannel.appendLine(`[Substitutions] Found ${docsetFiles.length} docset files`);
 
           for (const docsetFile of docsetFiles) {
+              outputChannel.appendLine(`[Substitutions] Parsing: ${docsetFile}`);
               const unorderedSubs = parseDocsetFile(docsetFile);
               // Allow all custom substitutions from docset.yml, including product name overrides
               Object.assign(substitutions, unorderedSubs);
@@ -158,14 +211,27 @@ function findDocsetFiles(documentUri: vscode.Uri): string[] {
         'Substitutions.findDocsetFiles',
         () => {
             const docsetFiles: string[] = [];
+            
+            // In web environment, use preloaded docsets
+            if (isWeb) {
+                outputChannel.appendLine(`[findDocsetFiles] Using preloaded docsets (${preloadedDocsets.size} available)`);
+                return Array.from(preloadedDocsets.keys());
+            }
+
             const documentPath = documentUri.fsPath;
             const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
 
+            outputChannel.appendLine(`[findDocsetFiles] documentPath: ${documentPath}`);
+            outputChannel.appendLine(`[findDocsetFiles] workspaceFolder: ${workspaceFolder?.uri.toString()}`);
+
             if (!workspaceFolder) {
+                outputChannel.appendLine(`[findDocsetFiles] No workspace folder found`);
                 return docsetFiles;
             }
 
             const workspaceRoot = workspaceFolder.uri.fsPath;
+            outputChannel.appendLine(`[findDocsetFiles] workspaceRoot: ${workspaceRoot}`);
+            outputChannel.appendLine(`[findDocsetFiles] isWeb: ${isWeb}`);
 
             // Define possible docset file names
             const docsetFileNames = ['docset.yml', '_docset.yml'];
@@ -173,8 +239,12 @@ function findDocsetFiles(documentUri: vscode.Uri): string[] {
             // Check workspace root
             for (const fileName of docsetFileNames) {
                 const rootDocsetPath = pathUtils.join(workspaceRoot, fileName);
+                outputChannel.appendLine(`[findDocsetFiles] Checking: ${rootDocsetPath}`);
                 if (existsSync(rootDocsetPath)) {
+                    outputChannel.appendLine(`[findDocsetFiles] Found: ${rootDocsetPath}`);
                     docsetFiles.push(rootDocsetPath);
+                } else {
+                    outputChannel.appendLine(`[findDocsetFiles] Not found: ${rootDocsetPath}`);
                 }
             }
 
@@ -218,6 +288,17 @@ function parseDocsetFile(filePath: string): SubstitutionVariables {
         'Substitutions.parseDocsetFile',
         () => {
             try {
+                // In web environment, use preloaded data
+                if (isWeb) {
+                    const preloaded = preloadedDocsets.get(filePath);
+                    if (preloaded) {
+                        outputChannel.appendLine(`[parseDocsetFile] Using preloaded data for: ${filePath}`);
+                        return preloaded;
+                    }
+                    outputChannel.appendLine(`[parseDocsetFile] No preloaded data for: ${filePath}`);
+                    return {};
+                }
+
                 const content = readFileSync(filePath);
                 const parsed = parseYaml(content);
 

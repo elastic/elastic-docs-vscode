@@ -29,7 +29,7 @@ import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 import { SubstitutionValidationProvider } from './substitutionValidationProvider';
 import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
 import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
-import { substitutionCache } from './substitutions';
+import { substitutionCache, initializeSubstitutionsForWeb } from './substitutions';
 
 import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
@@ -38,6 +38,11 @@ export function activate(context: vscode.ExtensionContext): void {
     // Debug logging
     outputChannel.appendLine('Elastic Docs V3 Utilities: Extension activated');
     outputChannel.appendLine('Registering completion providers...');
+
+    // Initialize substitutions for web environment (async, non-blocking)
+    initializeSubstitutionsForWeb().catch(err => {
+        outputChannel.appendLine(`Failed to initialize substitutions for web: ${err}`);
+    });
 
     // Apply color customizations programmatically
     applyColorCustomizations();
