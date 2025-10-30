@@ -143,6 +143,14 @@ This helps maintain consistency across your documentation and makes it easier to
 
 ## Installation
 
+### From the Visual Studio Marketplace
+
+1. Open the Visual Studio Marketplace.
+2. Search for "Elastic Docs Utilities" or go [here](https://marketplace.visualstudio.com/items?itemName=elastic.elastic-docs-v3-utilities).
+3. Select "Install".
+
+### From the releases page
+
 1. Download the latest `.vsix` file from the Releases page.
 2. Start VSCode.
 3. Press `Ctrl/Cmd+Shift+P` to open Command Palette.
