@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
 import { outputChannel } from './logger';
 import { PRODUCTS } from './products';
 import { performanceLogger } from './performanceLogger';
-import { pathUtils, existsSync, readFileSync, isDirectorySync, isWeb, readFile, exists } from './fileSystem';
+import { pathUtils, existsSync, readFileSync, isDirectorySync, isWeb, readFile } from './fileSystem';
 
 interface SubstitutionVariables {
     [key: string]: string;
