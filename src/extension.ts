@@ -29,7 +29,7 @@ import { FrontmatterValidationProvider } from './frontmatterValidationProvider';
 import { SubstitutionValidationProvider } from './substitutionValidationProvider';
 import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider';
 import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
-import { substitutionCache } from './substitutions';
+import { substitutionCache, initializeSubstitutionsForWeb } from './substitutions';
 import { VersionsCache } from './versionsCache';
 
 import { outputChannel } from './logger';
@@ -48,6 +48,11 @@ export function activate(context: vscode.ExtensionContext): void {
         substitutionCache.clear();
     }).catch(err => {
         outputChannel.appendLine(`Failed to initialize versions cache: ${err}`);
+    });
+
+    // Initialize substitutions for web environment (async, non-blocking)
+    initializeSubstitutionsForWeb().catch(err => {
+        outputChannel.appendLine(`Failed to initialize substitutions for web: ${err}`);
     });
 
     // Apply color customizations programmatically

@@ -17,9 +17,10 @@
  * under the License.
  */
 
-import * as https from 'https';
-import { IncomingMessage } from 'http';
 import { outputChannel } from './logger';
+
+// Detect if we're running in a web environment
+const isWeb = typeof process === 'undefined' || typeof process.versions === 'undefined' || typeof process.versions.node === 'undefined';
 
 const VERSIONS_URL = 'https://raw.githubusercontent.com/elastic/docs-builder/main/config/versions.yml';
 const CACHE_DURATION_MS = 1000 * 60 * 60; // 1 hour
@@ -97,48 +98,67 @@ export class VersionsCache {
     }
 
     private async doFetch(): Promise<void> {
-        return new Promise<void>((resolve) => {
-            https.get(VERSIONS_URL, (res) => {
-                const data = '';
-
-                // Handle redirects
-                if (res.statusCode === 301 || res.statusCode === 302) {
-                    if (res.headers.location) {
-                        https.get(res.headers.location, this.handleResponse(resolve, data));
-                        return;
-                    }
+        try {
+            if (isWeb) {
+                // In web environment, use fetch API
+                const response = await fetch(VERSIONS_URL);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+                const data = await response.text();
+                const versions = this.parseSimpleYaml(data);
+                this.versions = versions;
+                this.lastFetchTime = Date.now();
+            } else {
+                // In Node.js environment, use https module
+                return new Promise<void>((resolve) => {
+                    // eslint-disable-next-line @typescript-eslint/no-var-requires
+                    const https = require('https');
+                    
+                    https.get(VERSIONS_URL, (res: { statusCode?: number; headers: { location?: string }; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
+                        // Handle redirects
+                        if (res.statusCode === 301 || res.statusCode === 302) {
+                            if (res.headers.location) {
+                                https.get(res.headers.location, (redirectRes: { statusCode?: number; headers: { location?: string }; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
+                                    this.handleNodeResponse(redirectRes, resolve);
+                                });
+                                return;
+                            }
+                        }
 
-                this.handleResponse(resolve, data)(res);
-            }).on('error', (err) => {
-                // Fail silently as requested
-                outputChannel.appendLine(`Failed to fetch versions.yml: ${err.message}`);
-                resolve();
-            });
-        });
+                        this.handleNodeResponse(res, resolve);
+                    }).on('error', (err: Error) => {
+                        // Fail silently as requested
+                        outputChannel.appendLine(`Failed to fetch versions.yml: ${err.message}`);
+                        resolve();
+                    });
+                });
+            }
+        } catch (err) {
+            // Fail silently as requested
+            outputChannel.appendLine(`Failed to fetch versions.yml: ${err}`);
+        }
     }
 
-    private handleResponse(resolve: () => void, initialData: string): (res: IncomingMessage) => void {
-        return (res: IncomingMessage) => {
-            let data = initialData;
-            
-            res.on('data', (chunk: Buffer) => {
-                data += chunk.toString();
-            });
+    private handleNodeResponse(res: { on: (event: string, callback: (chunk: Buffer) => void) => void }, resolve: () => void): void {
+        let data = '';
+        
+        res.on('data', (chunk: Buffer) => {
+            data += chunk.toString();
+        });
 
-            res.on('end', () => {
-                try {
-                    // Parse YAML using simple parser
-                    const versions = this.parseSimpleYaml(data);
-                    this.versions = versions;
-                    this.lastFetchTime = Date.now();
-                } catch (err) {
-                    // Fail silently as requested
-                    outputChannel.appendLine(`Failed to parse versions.yml: ${err}`);
-                }
-                resolve();
-            });
-        };
+        res.on('end', () => {
+            try {
+                // Parse YAML using simple parser
+                const versions = this.parseSimpleYaml(data);
+                this.versions = versions;
+                this.lastFetchTime = Date.now();
+            } catch (err) {
+                // Fail silently as requested
+                outputChannel.appendLine(`Failed to parse versions.yml: ${err}`);
+            }
+            resolve();
+        });
     }
 
     /**
