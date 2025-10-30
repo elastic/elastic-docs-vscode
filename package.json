@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs Utilities",
   "description": "Utilities for Elastic Docs authoring",
-  "version": "0.11.5",
+  "version": "0.11.6",
   "publisher": "Elastic",
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
     "onStartupFinished"
   ],
   "main": "./out/extension.js",
-  "browser": "./out/extension.js",
+  "browser": "./out/extension-web.js",
   "contributes": {
     "languages": [
       {
@@ -53,8 +53,8 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "compile": "node esbuild.js --minify",
+    "watch": "node esbuild.js --watch",
     "package": "vsce package",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
@@ -62,12 +62,12 @@
     "copyright:check": "node scripts/check-copyright.js",
     "copyright:fix": "node scripts/check-copyright.js --fix"
   },
-
   "devDependencies": {
     "@types/node": "18.x",
     "@types/vscode": "^1.74.0",
     "@typescript-eslint/eslint-plugin": "^5.45.0",
     "@typescript-eslint/parser": "^5.45.0",
+    "esbuild": "^0.25.11",
     "eslint": "^8.28.0",
     "typescript": "^4.9.4"
   }

@@ -18,11 +18,10 @@
  */
 
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import { outputChannel } from './logger';
 import { PRODUCTS } from './products';
 import { performanceLogger } from './performanceLogger';
+import { pathUtils, existsSync, readFileSync, isDirectorySync } from './fileSystem';
 
 interface SubstitutionVariables {
     [key: string]: string;
@@ -173,34 +172,34 @@ function findDocsetFiles(documentUri: vscode.Uri): string[] {
 
             // Check workspace root
             for (const fileName of docsetFileNames) {
-                const rootDocsetPath = path.join(workspaceRoot, fileName);
-                if (fs.existsSync(rootDocsetPath)) {
+                const rootDocsetPath = pathUtils.join(workspaceRoot, fileName);
+                if (existsSync(rootDocsetPath)) {
                     docsetFiles.push(rootDocsetPath);
                 }
             }
 
             // Check /docs folder in workspace root
-            const docsFolderPath = path.join(workspaceRoot, 'docs');
-            if (fs.existsSync(docsFolderPath) && fs.statSync(docsFolderPath).isDirectory()) {
+            const docsFolderPath = pathUtils.join(workspaceRoot, 'docs');
+            if (existsSync(docsFolderPath) && isDirectorySync(docsFolderPath)) {
                 for (const fileName of docsetFileNames) {
-                    const docsDocsetPath = path.join(docsFolderPath, fileName);
-                    if (fs.existsSync(docsDocsetPath)) {
+                    const docsDocsetPath = pathUtils.join(docsFolderPath, fileName);
+                    if (existsSync(docsDocsetPath)) {
                         docsetFiles.push(docsDocsetPath);
                     }
                 }
             }
 
             // Also search upwards from the document location for backward compatibility
-            let currentDir = path.dirname(documentPath);
+            let currentDir = pathUtils.dirname(documentPath);
             while (currentDir && currentDir.startsWith(workspaceRoot)) {
                 for (const fileName of docsetFileNames) {
-                    const docsetPath = path.join(currentDir, fileName);
-                    if (fs.existsSync(docsetPath)) {
+                    const docsetPath = pathUtils.join(currentDir, fileName);
+                    if (existsSync(docsetPath)) {
                         docsetFiles.push(docsetPath);
                     }
                 }
 
-                const parentDir = path.dirname(currentDir);
+                const parentDir = pathUtils.dirname(currentDir);
                 if (parentDir === currentDir) {
                     break; // Reached root
                 }
@@ -219,7 +218,7 @@ function parseDocsetFile(filePath: string): SubstitutionVariables {
         'Substitutions.parseDocsetFile',
         () => {
             try {
-                const content = fs.readFileSync(filePath, 'utf8');
+                const content = readFileSync(filePath);
                 const parsed = parseYaml(content);
 
                 if (parsed && typeof parsed === 'object' && 'subs' in parsed) {
@@ -252,7 +251,7 @@ function parseFrontmatterSubs(documentUri: vscode.Uri): SubstitutionVariables {
                 const document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === documentUri.fsPath);
                 if (!document) {
                     // If document is not open, try to read from file system
-                    const content = fs.readFileSync(documentUri.fsPath, 'utf8');
+                    const content = readFileSync(documentUri.fsPath);
                     return extractSubsFromFrontmatter(content);
                 }
 
