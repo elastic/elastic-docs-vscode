@@ -51,7 +51,11 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     // Initialize substitutions for web environment (async, non-blocking)
-    initializeSubstitutionsForWeb().catch(err => {
+    initializeSubstitutionsForWeb().then(() => {
+        outputChannel.appendLine('Substitutions for web environment initialized successfully');
+        // Clear any existing cache to ensure fresh substitutions are used
+        substitutionCache.clear();
+    }).catch(err => {
         outputChannel.appendLine(`Failed to initialize substitutions for web: ${err}`);
     });
 

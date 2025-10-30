@@ -62,6 +62,8 @@ export const substitutionCache = new SubstitutionCache();
 
 // Store for pre-loaded docset files in web environment
 const preloadedDocsets = new Map<string, SubstitutionVariables>();
+let webInitializationComplete = false;
+let webInitializationPromise: Promise<void> | null = null;
 
 /**
  * Initialize substitutions for web environment by pre-loading docset files
@@ -72,6 +74,16 @@ export async function initializeSubstitutionsForWeb(): Promise<void> {
         return; // Only needed in web environment
     }
 
+    // Return existing promise if already initializing
+    if (webInitializationPromise) {
+        return webInitializationPromise;
+    }
+
+    webInitializationPromise = doInitializeWeb();
+    return webInitializationPromise;
+}
+
+async function doInitializeWeb(): Promise<void> {
     outputChannel.appendLine('[Substitutions] Initializing for web environment...');
 
     try {
@@ -102,8 +114,10 @@ export async function initializeSubstitutionsForWeb(): Promise<void> {
         }
 
         outputChannel.appendLine(`[Substitutions] Web initialization complete. Loaded ${preloadedDocsets.size} docset files.`);
+        webInitializationComplete = true;
     } catch (error) {
         outputChannel.appendLine(`[Substitutions] Error during web initialization: ${error}`);
+        webInitializationComplete = true; // Mark as complete even on error to avoid hanging
     }
 }
 
@@ -231,7 +245,14 @@ function findDocsetFiles(documentUri: vscode.Uri): string[] {
             
             // In web environment, use preloaded docsets
             if (isWeb) {
+                outputChannel.appendLine(`[findDocsetFiles] Web environment - initialization complete: ${webInitializationComplete}`);
                 outputChannel.appendLine(`[findDocsetFiles] Using preloaded docsets (${preloadedDocsets.size} available)`);
+                
+                if (!webInitializationComplete) {
+                    outputChannel.appendLine(`[findDocsetFiles] WARNING: Web initialization not complete yet, returning empty list`);
+                    return [];
+                }
+                
                 return Array.from(preloadedDocsets.keys());
             }
 
