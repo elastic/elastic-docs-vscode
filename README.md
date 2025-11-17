@@ -62,6 +62,7 @@ Example: `{subs}`wget elasticsearch-{{version}}.tar.gz``
 - `{image}` - Images with alt text and sizing options
 - `{carousel}` - Image carousels (supports `:max-height:`)
 - `{diagram}` - Various diagram types (mermaid, d2, graphviz, plantuml, etc.)
+- `{math}` - Mathematical expressions using LaTeX syntax (supports `:label:` for cross-referencing)
 
 ### Content inclusion
 - `{include}` - Include content from other files
