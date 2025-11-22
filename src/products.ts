@@ -18,6 +18,7 @@
  */
 
 export const PRODUCTS: Record<string, string> = {
+  'agent-builder': 'Elastic Agent Builder',
   'apm': 'APM',
   'apm-agent': 'APM Agent',
   'apm-agent-dotnet': 'APM .NET Agent',

@@ -110,16 +110,6 @@ export class SubstitutionValidationProvider {
             while ((match = pattern.exec(line)) !== null) {
                 const startChar = match.index + (match[1] ? match[1].length : 0);
                 const endChar = startChar + value.length;
-                
-                // Skip if this is an exception case
-                if (this.isException(key, value, line, startChar, endChar)) {
-                    // Prevent infinite loops with zero-width matches
-                    if (match.index === pattern.lastIndex) {
-                        pattern.lastIndex++;
-                    }
-                    continue;
-                }
-                
                 const range = new vscode.Range(lineNumber, startChar, lineNumber, endChar);
                 
                 // Check for overlapping errors to avoid duplicates
@@ -138,29 +128,6 @@ export class SubstitutionValidationProvider {
                 }
             }
         }
-    }
-
-    /**
-     * Check if the matched text should be excluded from validation.
-     * This handles cases where a substitution value appears as part of a longer product name.
-     * 
-     * @param key - The substitution key (e.g., "product.elastic-agent")
-     * @param value - The substitution value (e.g., "Elastic Agent")
-     * @param line - The full line of text being validated
-     * @param startChar - Start position of the matched text
-     * @param endChar - End position of the matched text
-     * @returns true if this match should be skipped, false otherwise
-     */
-    private isException(key: string, value: string, line: string, startChar: number, endChar: number): boolean {
-        // Exception: "Elastic Agent Builder" should not trigger product.elastic-agent suggestion
-        if (key === 'product.elastic-agent' && value === 'Elastic Agent') {
-            const textAfter = line.substring(endChar).trimStart();
-            if (textAfter.toLowerCase().startsWith('builder')) {
-                return true;
-            }
-        }
-        
-        return false;
     }
 
     private escapeRegExp(text: string): string {
