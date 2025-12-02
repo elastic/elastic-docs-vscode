@@ -355,6 +355,17 @@ export function activate(context: vscode.ExtensionContext): void {
 function applyColorCustomizations(): void {
     const config = vscode.workspace.getConfiguration('editor');
     const currentCustomizations = config.get('tokenColorCustomizations') as Record<string, unknown> || {};
+    const existingRules = (currentCustomizations.textMateRules as Array<{ scope?: string }>) || [];
+
+    // Check if our rules are already applied by looking for a known elastic scope
+    const elasticRulesAlreadyApplied = existingRules.some(
+        rule => rule.scope && rule.scope.includes('.elastic')
+    );
+
+    if (elasticRulesAlreadyApplied) {
+        // Rules already exist, skip the expensive settings write
+        return;
+    }
 
     // Define our custom color rules
     const elasticRules = [
@@ -435,11 +446,9 @@ function applyColorCustomizations(): void {
         }
     ];
 
-    // Merge with existing rules
-    const existingRules = (currentCustomizations.textMateRules as unknown[]) || [];
+    // Merge with existing rules and apply (only on first activation)
     const newRules = [...existingRules, ...elasticRules];
 
-    // Apply the customizations
     config.update('tokenColorCustomizations', {
         ...currentCustomizations,
         textMateRules: newRules

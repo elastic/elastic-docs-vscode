@@ -145,6 +145,13 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
         template: ':::{csv-include} _snippets/sample-data.csv\n:caption: Sample user data from the database\n:::',
         description: 'Include and render CSV files as formatted tables.'
     },
+    {
+        name: 'math',
+        hasArgument: false,
+        parameters: ['label'],
+        template: ':::{math}\n:label: equation-label\nE = mc^2\n:::',
+        description: 'Render mathematical expressions using LaTeX syntax. Mathematical expressions are rendered client-side using KaTeX for fast, accurate display.'
+    },
 ];
 
 export const PARAMETER_VALUES: { [key: string]: string[] } = {

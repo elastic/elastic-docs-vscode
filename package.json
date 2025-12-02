@@ -16,8 +16,7 @@
   ],
   "icon": "images/icon.png",
   "activationEvents": [
-    "onLanguage:markdown",
-    "onStartupFinished"
+    "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
   "browser": "./out/extension-web.js",
