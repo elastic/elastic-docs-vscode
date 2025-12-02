@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs Utilities",
   "description": "Utilities for Elastic Docs authoring",
-  "version": "0.11.12",
+  "version": "0.11.13",
   "publisher": "Elastic",
   "repository": {
     "type": "git",
@@ -16,8 +16,7 @@
   ],
   "icon": "images/icon.png",
   "activationEvents": [
-    "onLanguage:markdown",
-    "onStartupFinished"
+    "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
   "browser": "./out/extension-web.js",
