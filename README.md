@@ -24,6 +24,7 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - **Mutation preview**: See step-by-step transformation results when hovering over variables with mutations.
 - **Enhanced completion tooltips**: Get full variable values when selecting from autocompletion.
 - **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, substitution variables, and mutation operators that works alongside standard Markdown highlighting.
+- **Built-in versions**: Automatically fetches and caches version substitutions from the docs-builder repository, available as `{{version.*}}` variables with autocompletion support.
 
 ## Inline roles
 
@@ -114,6 +115,23 @@ sub:
 
 These merge with `docset.yml` substitutions and are available throughout the document.
 
+### Built-in versions from docs-builder
+
+The extension automatically fetches version substitutions from the [docs-builder repository](https://github.com/elastic/docs-builder) and makes them available as `{{version.*}}` variables. These versions are cached locally and refreshed automatically every hour, ensuring you always have access to the latest version information.
+
+**Available version variables:**
+- Type `{{version.` to see all available version substitutions (e.g., `{{version.edot_php}}`, `{{version.stack}}`, `{{version.self}}`)
+- Versions are automatically loaded when the extension activates
+- The cache is refreshed automatically every hour in the background
+
+**Manual refresh:**
+If you need to refresh the versions cache manually:
+1. Press `Ctrl/Cmd+Shift+P` to open the Command Palette
+2. Run **Elastic Docs: Refresh Versions Cache**
+3. The extension will fetch the latest versions from GitHub and update the cache
+
+The versions are sourced from the `versions.yml` file in the docs-builder repository and include all versioning systems defined there, such as stack versions, product-specific versions, and more.
+
 ### Substitution validation and quick fixes
 
 The extension automatically detects when you're using literal values that can be replaced with substitution variables. For example, if you have a substitution variable `{{product.apm}}` defined in your `docset.yml` file with the value "APM", the extension shows a warning when you type "APM" directly in your content, suggesting you use `{{product.apm}}` instead.
@@ -134,13 +152,15 @@ This helps maintain consistency across your documentation and makes it easier to
 3. **Try the features**:
    - Type `:::` to see directive completions
    - Type `{icon}` followed by a backtick to see icon options
-   - Type `{{` to see substitution variables
+   - Type `{{` to see substitution variables (including built-in versions from docs-builder)
+   - Type `{{version.` to see available version substitutions
    - Type `|` after a variable to see mutation operators
    - Use `.elasticsearch` shorthand for `product.elasticsearch`
    - Add `sub:` field in frontmatter for document-specific variables
    - Add frontmatter fields and see autocompletion
    - Notice validation warnings for literal values that could use substitutions
    - Hover over variables with mutations to see transformation previews
+   - Use the Command Palette to manually refresh versions cache if needed
 
 ## Installation
 
