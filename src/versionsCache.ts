@@ -28,12 +28,22 @@ const CACHE_DURATION_MS = 1000 * 60 * 60; // 1 hour
 /**
  * Cache for versions.yml from the docs-builder repository.
  * Fetches version substitutions like {{version.edot_php}} and caches them.
+ * Converts hyphens to underscores in keys (e.g., edot-collector -> edot_collector).
+ * Supports both current and base versions (e.g., version.stack and version.stack.base).
  */
 export class VersionsCache {
     private static instance: VersionsCache;
     private versions: Record<string, string> = {};
     private lastFetchTime: number = 0;
     private fetchPromise: Promise<void> | null = null;
+
+    /**
+     * Normalize version key by converting hyphens to underscores.
+     * This allows versions.yml keys like "edot-collector" to be accessed as "edot_collector".
+     */
+    private normalizeKey(key: string): string {
+        return key.replace(/-/g, '_');
+    }
 
     private constructor() {}
 
@@ -163,14 +173,18 @@ export class VersionsCache {
 
     /**
      * Simple YAML parser for the versions.yml structure.
-     * Parses nested structure under versioning_systems and extracts 'current' values.
+     * Parses nested structure under versioning_systems and extracts both 'current' and 'base' values.
      * Handles YAML anchors (&name) and aliases (*name).
+     * Converts hyphens to underscores in keys (e.g., "edot-collector" -> "edot_collector").
      *
      * Expected structure:
      * versioning_systems:
      *   stack: &stack
      *     base: 9.0
      *     current: 9.1.5
+     *   edot-collector:
+     *     base: 1.0
+     *     current: 1.2.3
      *   self: *stack
      */
     private parseSimpleYaml(content: string): Record<string, string> {
@@ -215,6 +229,15 @@ export class VersionsCache {
                     };
                 }
 
+                // Save previous product's version data (both current and base)
+                if (currentProduct && currentVersionData.current) {
+                    const normalizedKey = this.normalizeKey(currentProduct);
+                    versions[normalizedKey] = currentVersionData.current;
+                    if (currentVersionData.base) {
+                        versions[`${normalizedKey}.base`] = currentVersionData.base;
+                    }
+                }
+
                 const colonIndex = trimmed.indexOf(':');
                 const key = trimmed.substring(0, colonIndex).trim();
                 const value = trimmed.substring(colonIndex + 1).trim();
@@ -233,7 +256,11 @@ export class VersionsCache {
                 if (value.startsWith('*')) {
                     const aliasName = value.substring(1).trim();
                     if (anchors[aliasName]) {
-                        versions[currentProduct] = anchors[aliasName].current;
+                        const normalizedKey = this.normalizeKey(currentProduct);
+                        versions[normalizedKey] = anchors[aliasName].current;
+                        if (anchors[aliasName].base) {
+                            versions[`${normalizedKey}.base`] = anchors[aliasName].base;
+                        }
                     }
                     currentProduct = null;
                     continue;
@@ -253,7 +280,6 @@ export class VersionsCache {
 
                 if (field === 'current') {
                     currentVersionData.current = cleanValue;
-                    versions[currentProduct] = cleanValue;
                 } else if (field === 'base') {
                     currentVersionData.base = cleanValue;
                 }
@@ -266,6 +292,15 @@ export class VersionsCache {
                 base: currentVersionData.base || '',
                 current: currentVersionData.current
             };
+        }
+
+        // Save last product's version data (both current and base)
+        if (currentProduct && currentVersionData.current) {
+            const normalizedKey = this.normalizeKey(currentProduct);
+            versions[normalizedKey] = currentVersionData.current;
+            if (currentVersionData.base) {
+                versions[`${normalizedKey}.base`] = currentVersionData.base;
+            }
         }
 
         return versions;
