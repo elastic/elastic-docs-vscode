@@ -66,8 +66,13 @@ export class SubstitutionValidationProvider {
                 const lineOffset = text.substring(0, frontmatterEnd).split('\n').length - 1;
 
                 // PERFORMANCE OPTIMIZATION: Pre-compile all regex patterns
+                // Exclude version substitutions since version numbers are ambiguous without context
                 const compiledPatterns = new Map<string, RegExp>();
                 for (const [key, value] of Object.entries(substitutions)) {
+                    // Skip version substitutions - version numbers are too ambiguous to suggest replacements
+                    if (key.startsWith('version.')) {
+                        continue;
+                    }
                     if (value.length > 0) { // Skip empty values
                         const escapedValue = this.escapeRegExp(value);
                         compiledPatterns.set(key, new RegExp(`(\\W|^)${escapedValue}(\\W|$)`, 'gm'));
