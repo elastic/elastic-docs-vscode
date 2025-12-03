@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs Utilities",
   "description": "Utilities for Elastic Docs authoring",
-  "version": "0.11.13",
+  "version": "0.12.0",
   "publisher": "Elastic",
   "repository": {
     "type": "git",
@@ -47,6 +47,10 @@
       {
         "command": "elastic-docs-v3.replaceEntireLine",
         "title": "Replace entire line"
+      },
+      {
+        "command": "elastic-docs-v3.refreshVersions",
+        "title": "Elastic Docs: Refresh Versions Cache"
       }
     ]
   },
