@@ -36,7 +36,7 @@ export const APPLIES_TO_KEYS = [
     'apm_agent_java', 'apm_agent_node', 'apm_agent_php', 'apm_agent_python',
     'apm_agent_ruby', 'apm_agent_rum',
     'edot_ios', 'edot_android', 'edot_dotnet', 'edot_java', 'edot_node',
-    'edot_php', 'edot_python', 'edot_cf_aws', 'edot_cf_azure', 'edot_collector'
+    'edot_php', 'edot_python', 'edot_cf_aws', 'edot_cf_azure', 'edot_cf_gcp', 'edot_collector'
 ];
 
 export const LIFECYCLE_STATES = [

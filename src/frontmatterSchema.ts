@@ -121,43 +121,47 @@ export const frontmatterSchema = {
         },
         "edot_ios": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot iOS applicability"
+          "description": "Elastic iOS applicability"
         },
         "edot_android": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Android applicability"
+          "description": "Elastic Android applicability"
         },
         "edot_dotnet": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot .NET applicability"
+          "description": "Elastic .NET applicability"
         },
         "edot_java": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Java applicability"
+          "description": "Elastic Java applicability"
         },
         "edot_node": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Node.js applicability"
+          "description": "Elastic Node.js applicability"
         },
         "edot_php": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot PHP applicability"
+          "description": "Elastic PHP applicability"
         },
         "edot_python": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Python applicability"
+          "description": "Elastic Python applicability"
         },
         "edot_cf_aws": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot CloudFormation AWS applicability"
+          "description": "Elastic CloudFormation AWS applicability"
         },
         "edot_cf_azure": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot CloudFormation Azure applicability"
+          "description": "Elastic CloudFormation Azure applicability"
+        },
+        "edot_cf_gcp": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud Forwarder GCP applicability"
         },
         "edot_collector": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Dot Collector applicability"
+          "description": "Elastic Collector applicability"
         }
       },
       "additionalProperties": false
@@ -321,7 +325,7 @@ export const frontmatterSchema = {
         "elasticsearch", "observability", "security",
         "ecctl", "curator",
         "apm_agent_android", "apm_agent_dotnet", "apm_agent_go", "apm_agent_ios", "apm_agent_java", "apm_agent_node", "apm_agent_php", "apm_agent_python", "apm_agent_ruby", "apm_agent_rum",
-        "edot_ios", "edot_android", "edot_dotnet", "edot_java", "edot_node", "edot_php", "edot_python", "edot_cf_aws", "edot_cf_azure", "edot_collector"
+        "edot_ios", "edot_android", "edot_dotnet", "edot_java", "edot_node", "edot_php", "edot_python", "edot_cf_aws", "edot_cf_azure", "edot_cf_gcp", "edot_collector"
       ]
     }
   }

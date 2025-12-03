@@ -64,6 +64,7 @@ export const PRODUCTS: Record<string, string> = {
   'edot-python': 'Elastic Distribution of OpenTelemetry Python',
   'edot-cf-aws': 'EDOT Cloud Forwarder for AWS',
   'edot-cf-azure': 'EDOT Cloud Forwarder for Azure',
+  'edot-cf-gcp': 'EDOT Cloud Forwarder for GCP',
   'eland': 'Eland',
   'elastic-agent': 'Elastic Agent',
   'elastic-serverless-forwarder': 'Elastic Serverless Forwarder',
