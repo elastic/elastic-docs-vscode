@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs Utilities",
   "description": "Utilities for Elastic Docs authoring",
-  "version": "0.12.2",
+  "version": "0.12.5",
   "publisher": "Elastic",
   "repository": {
     "type": "git",
