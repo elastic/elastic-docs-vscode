@@ -258,7 +258,6 @@ export class DirectiveDiagnosticProvider {
                 // Create a range covering all content lines
                 const firstContentLine = block.contentLines[0];
                 const lastContentLine = block.contentLines[block.contentLines.length - 1];
-                const firstLine = document.lineAt(firstContentLine);
                 const lastLine = document.lineAt(lastContentLine);
                 const contentRange = new vscode.Range(
                     new vscode.Position(firstContentLine, 0),
