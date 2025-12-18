@@ -152,6 +152,20 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
         template: ':::{math}\n:label: equation-label\nE = mc^2\n:::',
         description: 'Render mathematical expressions using LaTeX syntax. Mathematical expressions are rendered client-side using KaTeX for fast, accurate display.'
     },
+    {
+        name: 'button',
+        hasArgument: false,
+        parameters: ['type', 'align'],
+        template: ':::{button}\n[Button Text](/link)\n:::',
+        description: 'Styled link element for calls to action in documentation.'
+    },
+    {
+        name: 'button-group',
+        hasArgument: false,
+        parameters: ['align'],
+        template: '::::{button-group}\n:::{button}\n[Button Text](/link)\n:::\n::::',
+        description: 'Group multiple buttons in a row.'
+    },
 ];
 
 export const PARAMETER_VALUES: { [key: string]: string[] } = {
@@ -162,5 +176,7 @@ export const PARAMETER_VALUES: { [key: string]: string[] } = {
     'height': ['100px', '200px', '300px', '400px', '500px'],
     'alt': ['Image description', 'Screenshot', 'Diagram', 'Icon'],
     'separator': [',', ';', '|', 'tab'],
-    'caption': ['Table caption']
+    'caption': ['Table caption'],
+    'type': ['primary', 'secondary'],
+    'align': ['left', 'center', 'right']
 };

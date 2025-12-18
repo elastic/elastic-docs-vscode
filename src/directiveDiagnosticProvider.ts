@@ -193,7 +193,7 @@ export class DirectiveDiagnosticProvider {
         return blocks;
     }
     
-    private validateDirectiveBlock(block: DirectiveBlock, _document: vscode.TextDocument): vscode.Diagnostic[] {
+    private validateDirectiveBlock(block: DirectiveBlock, document: vscode.TextDocument): vscode.Diagnostic[] {
         const diagnostics: vscode.Diagnostic[] = [];
         
         outputChannel.appendLine(`[Elastic Docs] Validating block '${block.name}' (${block.openingColons} colons) - Has closing: ${!!block.closing}`);
@@ -248,7 +248,32 @@ export class DirectiveDiagnosticProvider {
             }
         }
         
-        // 6. Check for malformed opening (missing braces)
+        // 6. Validate button directive content (must be a markdown link)
+        if (block.name === 'button' && block.contentLines.length > 0) {
+            const contentLines = block.contentLines.map(lineNum => document.lineAt(lineNum).text);
+            const content = contentLines.join('\n').trim();
+            const markdownLinkPattern = /^\[([^\]]+)\]\(([^)]+)\)$/;
+            
+            if (!markdownLinkPattern.test(content)) {
+                // Create a range covering all content lines
+                const firstContentLine = block.contentLines[0];
+                const lastContentLine = block.contentLines[block.contentLines.length - 1];
+                const firstLine = document.lineAt(firstContentLine);
+                const lastLine = document.lineAt(lastContentLine);
+                const contentRange = new vscode.Range(
+                    new vscode.Position(firstContentLine, 0),
+                    new vscode.Position(lastContentLine, lastLine.text.length)
+                );
+                
+                diagnostics.push(new vscode.Diagnostic(
+                    contentRange,
+                    "Button directive content must be a markdown link in the format [text](url)",
+                    vscode.DiagnosticSeverity.Error
+                ));
+            }
+        }
+        
+        // 7. Check for malformed opening (missing braces)
         if (block.isMalformed) {
             if (block.missingClosingBrace) {
                 diagnostics.push(new vscode.Diagnostic(
