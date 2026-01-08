@@ -265,7 +265,7 @@ export class ValeUpdateChecker {
      * Show a notification to the user about the available update.
      */
     private async showUpdateNotification(localVersion: string, latestVersion: string): Promise<void> {
-        const message = `A new version of the Elastic Vale style guide is available (v${latestVersion}). You have v${localVersion} installed.`;
+        const message = `A new version of the Elastic Vale style guide is available (v${latestVersion}). You have ${localVersion} installed.`;
         
         const updateAction = 'Update';
         const moreInfoAction = 'More Info';
