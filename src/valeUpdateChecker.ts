@@ -51,6 +51,11 @@ export class ValeUpdateChecker {
     /**
      * Check for updates and show notification if a newer version is available.
      * Called on extension activation.
+     * 
+     * This method is designed to be non-blocking and fail silently:
+     * - Runs asynchronously without blocking extension activation.
+     * - Any errors (network issues, timeouts, etc.) are logged to the output channel only.
+     * - No user-facing error messages are shown on failure.
      */
     public async checkForUpdates(): Promise<void> {
         // Skip in web environment - no local file system access
@@ -146,59 +151,76 @@ export class ValeUpdateChecker {
 
     /**
      * Fetch the latest release version from GitHub API.
+     * Includes a timeout to prevent hanging on slow networks.
+     * Fails silently and returns null on any error.
      */
     private async getLatestGitHubVersion(): Promise<string | null> {
+        const TIMEOUT_MS = 10000; // 10 second timeout
+
         return new Promise((resolve) => {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const https = require('https');
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const https = require('https');
 
-            const options = {
-                hostname: 'api.github.com',
-                path: '/repos/elastic/vale-rules/releases/latest',
-                method: 'GET',
-                headers: {
-                    'User-Agent': 'elastic-docs-v3-vscode-extension',
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            };
-
-            const req = https.request(options, (res: { statusCode?: number; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
-                let data = '';
-
-                res.on('data', (chunk: Buffer) => {
-                    data += chunk.toString();
-                });
-
-                res.on('end', () => {
-                    try {
-                        if (res.statusCode !== 200) {
-                            outputChannel.appendLine(`Vale update check: GitHub API returned status ${res.statusCode}`);
-                            resolve(null);
-                            return;
-                        }
-
-                        const release = JSON.parse(data);
-                        // tag_name is typically "v1.0.0" format
-                        const tagName = release.tag_name;
-                        if (tagName) {
-                            // Remove leading 'v' if present
-                            resolve(tagName.startsWith('v') ? tagName.substring(1) : tagName);
-                        } else {
-                            resolve(null);
-                        }
-                    } catch (err) {
-                        outputChannel.appendLine(`Vale update check: Failed to parse GitHub response: ${err}`);
-                        resolve(null);
+                const options = {
+                    hostname: 'api.github.com',
+                    path: '/repos/elastic/vale-rules/releases/latest',
+                    method: 'GET',
+                    timeout: TIMEOUT_MS,
+                    headers: {
+                        'User-Agent': 'elastic-docs-v3-vscode-extension',
+                        'Accept': 'application/vnd.github.v3+json'
                     }
+                };
+
+                const req = https.request(options, (res: { statusCode?: number; on: (event: string, callback: (chunk: Buffer) => void) => void }) => {
+                    let data = '';
+
+                    res.on('data', (chunk: Buffer) => {
+                        data += chunk.toString();
+                    });
+
+                    res.on('end', () => {
+                        try {
+                            if (res.statusCode !== 200) {
+                                outputChannel.appendLine(`Vale update check: GitHub API returned status ${res.statusCode}`);
+                                resolve(null);
+                                return;
+                            }
+
+                            const release = JSON.parse(data);
+                            // tag_name is typically "v1.0.0" format
+                            const tagName = release.tag_name;
+                            if (tagName) {
+                                // Remove leading 'v' if present
+                                resolve(tagName.startsWith('v') ? tagName.substring(1) : tagName);
+                            } else {
+                                resolve(null);
+                            }
+                        } catch (err) {
+                            outputChannel.appendLine(`Vale update check: Failed to parse GitHub response: ${err}`);
+                            resolve(null);
+                        }
+                    });
                 });
-            });
 
-            req.on('error', (err: Error) => {
-                outputChannel.appendLine(`Vale update check: Failed to fetch from GitHub: ${err.message}`);
+                req.on('timeout', () => {
+                    outputChannel.appendLine('Vale update check: Request timed out');
+                    req.destroy();
+                    resolve(null);
+                });
+
+                req.on('error', (err: Error) => {
+                    outputChannel.appendLine(`Vale update check: Failed to fetch from GitHub: ${err.message}`);
+                    resolve(null);
+                });
+
+                req.end();
+            } catch (err) {
+                // Catch any synchronous errors during request setup
+                outputChannel.appendLine(`Vale update check: Error setting up request: ${err}`);
                 resolve(null);
-            });
-
-            req.end();
+            }
         });
     }
 
