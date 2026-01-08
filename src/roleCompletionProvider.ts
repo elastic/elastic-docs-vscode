@@ -184,26 +184,32 @@ export class RoleCompletionProvider implements vscode.CompletionItemProvider {
             });
         });
 
-        // Add common patterns with version numbers
+        // Add common patterns with version numbers (new syntax)
         const commonPatterns = [
-            'stack: ga 9.0',
-            'stack: ga 9.1',
-            'stack: preview 9.0',
-            'serverless: ga',
-            'deployment: { ess: ga, ece: ga }',
-            'edot_collector: ga 9.2',
-            'edot_java: ga 1.0'
+            // Greater than or equal (explicit)
+            { pattern: 'stack: ga 9.1+', description: 'GA from 9.1 and later' },
+            { pattern: 'stack: preview 9.0+', description: 'Preview from 9.0 and later' },
+            // Version ranges
+            { pattern: 'stack: preview 9.0-9.1', description: 'Preview from 9.0 to 9.1' },
+            { pattern: 'stack: ga 9.2+, preview 9.0-9.1', description: 'GA from 9.2+, Preview 9.0-9.1' },
+            // Exact versions
+            { pattern: 'stack: ga =9.1', description: 'GA in exactly 9.1' },
+            { pattern: 'stack: beta =9.0', description: 'Beta in exactly 9.0' },
+            // Simple patterns
+            { pattern: 'serverless: ga', description: 'GA in Serverless' },
+            { pattern: 'edot_collector: ga 9.2+', description: 'EDOT Collector GA from 9.2+' },
+            { pattern: 'edot_java: ga 1.0+', description: 'EDOT Java GA from 1.0+' }
         ];
 
-        commonPatterns.forEach(pattern => {
+        commonPatterns.forEach(({ pattern, description }) => {
             const item = new vscode.CompletionItem(
                 pattern,
                 vscode.CompletionItemKind.Snippet
             );
 
             item.insertText = pattern;
-            item.detail = 'Common pattern';
-            item.documentation = new vscode.MarkdownString(`Insert common applies_to pattern: \`${pattern}\``);
+            item.detail = description;
+            item.documentation = new vscode.MarkdownString(`Insert applies_to pattern: \`${pattern}\``);
             item.sortText = `0-${pattern}`;
 
             completions.push(item);

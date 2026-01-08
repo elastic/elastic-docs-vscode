@@ -63,13 +63,15 @@ export class FrontmatterValidationProvider {
         'unavailable', 'planned', 'development', 'discontinued'
     ];
     
-    // Version pattern for lifecycle states
-    private readonly VERSION_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
-    private readonly COMMA_SEPARATED_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
+    // Single lifecycle entry pattern (supports all version specifier formats):
+    // - Greater than or equal (default): x.x, x.x+, x.x.x, x.x.x+
+    // - Range: x.x-y.y, x.x.x-y.y.y
+    // - Exact: =x.x, =x.x.x
+    // - All: all
+    private readonly SINGLE_ENTRY_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+(all|=[0-9]+(\.[0-9]+)*|[0-9]+(\.[0-9]+)*-[0-9]+(\.[0-9]+)*|[0-9]+(\.[0-9]+)*\+?))?$/;
     
-    // Patterns for "all" validation - only allowed with lifecycle states
-    private readonly LIFECYCLE_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\s+all$/;
-    private readonly COMMA_SEPARATED_WITH_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?$/;
+    // Pattern to detect implicit version (x.x without + or =) for hint
+    private readonly IMPLICIT_VERSION_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\s+[0-9]+(\.[0-9]+)*$/;
 
     constructor() {
         this.schema = frontmatterSchema as unknown as FrontmatterSchema;
@@ -457,16 +459,6 @@ export class FrontmatterValidationProvider {
             return;
         }
 
-        // Check if it matches lifecycle + version pattern
-        if (this.VERSION_PATTERN.test(value) || this.COMMA_SEPARATED_PATTERN.test(value)) {
-            return;
-        }
-
-        // Check if it matches lifecycle + "all" pattern
-        if (this.LIFECYCLE_ALL_PATTERN.test(value) || this.COMMA_SEPARATED_WITH_ALL_PATTERN.test(value)) {
-            return;
-        }
-
         // Check if it's just "all" by itself (invalid)
         if (value === 'all') {
             const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
@@ -481,16 +473,341 @@ export class FrontmatterValidationProvider {
             return;
         }
 
+        // Split by comma and validate each entry individually
+        const entries = value.split(',').map(e => e.trim());
+        let allEntriesValid = true;
+
+        for (const entry of entries) {
+            if (!this.SINGLE_ENTRY_PATTERN.test(entry)) {
+                allEntriesValid = false;
+                break;
+            }
+        }
+
+        if (allEntriesValid) {
+            // Valid syntax - now run semantic validations
+            this.validateAppliesSemantics(fieldPath, value, errors, document, startLine);
+            return;
+        }
+
         // Invalid lifecycle value
         const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
         if (valueRange) {
             errors.push({
                 range: valueRange,
-                message: `Invalid lifecycle value '${value}'. Expected format: 'state', 'state version', or 'state all' (e.g., 'ga', 'beta 9.1', 'ga all')`,
+                message: `Invalid lifecycle value '${value}'. Expected format: 'state', 'state version', 'state version+', 'state =version', 'state x.x-y.y', or 'state all'`,
                 severity: vscode.DiagnosticSeverity.Error,
                 code: 'invalid_lifecycle_value'
             });
         }
+    }
+
+    /**
+     * Semantic validation for applies_to values
+     * Checks for: implicit versions (hint), multiple unbound values, overlapping ranges, invalid ranges
+     */
+    private validateAppliesSemantics(fieldPath: string, value: string, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        const entries = value.split(',').map(e => e.trim());
+        const parsedEntries: Array<{
+            originalEntry: string;
+            lifecycle: string;
+            versionSpec: string | null;
+            isRange: boolean;
+            isExact: boolean;
+            isUnbound: boolean;
+            startVersion: number[] | null;
+            endVersion: number[] | null;
+        }> = [];
+
+        for (const entry of entries) {
+            const parsed = this.parseVersionEntry(entry);
+            if (parsed) {
+                parsedEntries.push({ ...parsed, originalEntry: entry });
+            }
+        }
+
+        const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
+        if (!valueRange) return;
+
+        // Check for implicit version syntax (hint)
+        // Count how many entries use implicit syntax vs explicit syntax
+        const implicitEntries = entries.filter(e => this.IMPLICIT_VERSION_PATTERN.test(e));
+        const hasImplicitEntries = implicitEntries.length > 0;
+        const allEntriesImplicit = implicitEntries.length === entries.filter(e => {
+            // Count entries that have versions (not just lifecycle state alone)
+            const parts = e.trim().split(/\s+/);
+            return parts.length > 1 && parts[1] !== 'all';
+        }).length;
+
+        if (hasImplicitEntries) {
+            if (allEntriesImplicit && entries.length > 1) {
+                // All versioned entries are implicit - suggest using explicit ranges
+                errors.push({
+                    range: valueRange,
+                    message: `Consider using explicit version ranges for clarity. Example: 'preview 9.4-10.9, ga 11.0-12.2, removed 12.3+' instead of inferring ranges.`,
+                    severity: vscode.DiagnosticSeverity.Hint,
+                    code: 'implicit_version_syntax'
+                });
+            } else {
+                // Some entries are implicit, some explicit - suggest being consistent
+                errors.push({
+                    range: valueRange,
+                    message: `Consider using explicit syntax: Use '+' for "and later" (e.g., 'ga 9.1+') or '=' for exact version (e.g., 'ga =9.1')`,
+                    severity: vscode.DiagnosticSeverity.Hint,
+                    code: 'implicit_version_syntax'
+                });
+            }
+        }
+
+        // Check for multiple unbound values (warning)
+        // Skip this check if all entries use implicit syntax (the system will infer ranges)
+        const unboundEntries = parsedEntries.filter(e => e.isUnbound && e.startVersion);
+        if (unboundEntries.length > 1 && !allEntriesImplicit) {
+            errors.push({
+                range: valueRange,
+                message: `Only one entry per key can use the greater-than syntax. Found ${unboundEntries.length} unbound entries.`,
+                severity: vscode.DiagnosticSeverity.Warning,
+                code: 'multiple_unbound_versions'
+            });
+        }
+
+        // Check for invalid ranges (min > max)
+        for (const entry of parsedEntries) {
+            if (entry.isRange && entry.startVersion && entry.endVersion) {
+                if (this.compareVersions(entry.startVersion, entry.endVersion) > 0) {
+                    errors.push({
+                        range: valueRange,
+                        message: `Invalid version range: the first version must be less than or equal to the second version`,
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        code: 'invalid_version_range'
+                    });
+                }
+            }
+        }
+
+        // Check for 'removed' with exact version as the last state
+        // This is usually a mistake - once removed, features typically stay removed
+        const removedExactEntries = parsedEntries.filter(e => 
+            e.lifecycle === 'removed' && e.isExact && e.startVersion
+        );
+        if (removedExactEntries.length > 0) {
+            // Find the highest version among all entries
+            const allVersions = parsedEntries
+                .filter(e => e.startVersion)
+                .map(e => ({ version: e.endVersion || e.startVersion, entry: e }))
+                .filter(v => v.version !== null) as Array<{ version: number[]; entry: typeof parsedEntries[0] }>;
+            
+            if (allVersions.length > 0) {
+                const highestEntry = allVersions.reduce((max, curr) => 
+                    this.compareVersions(curr.version, max.version) > 0 ? curr : max
+                );
+                
+                // If the highest version is a 'removed' with exact syntax
+                if (highestEntry.entry.lifecycle === 'removed' && highestEntry.entry.isExact) {
+                    const version = highestEntry.entry.startVersion!.join('.');
+                    errors.push({
+                        range: valueRange,
+                        message: `'removed =${version}' means removed only in version ${version}. If the feature stays removed, use 'removed ${version}+' instead.`,
+                        severity: vscode.DiagnosticSeverity.Hint,
+                        code: 'removed_exact_version'
+                    });
+                }
+            }
+        }
+
+        // Check for overlapping versions (warning)
+        // Skip overlap check if all entries use implicit syntax (the system will infer ranges)
+        if (parsedEntries.length > 1 && !allEntriesImplicit) {
+            const overlap = this.findOverlappingEntries(parsedEntries);
+            if (overlap) {
+                const [entry1, entry2, overlapVersion] = overlap;
+                errors.push({
+                    range: valueRange,
+                    message: `Overlapping versions: '${entry1}' and '${entry2}' both cover version ${overlapVersion}. A version cannot be in multiple lifecycle states.`,
+                    severity: vscode.DiagnosticSeverity.Warning,
+                    code: 'overlapping_versions'
+                });
+            }
+        }
+    }
+
+    /**
+     * Parse a single lifecycle entry into structured format
+     */
+    private parseVersionEntry(entry: string): {
+        lifecycle: string;
+        versionSpec: string | null;
+        isRange: boolean;
+        isExact: boolean;
+        isUnbound: boolean;
+        startVersion: number[] | null;
+        endVersion: number[] | null;
+    } | null {
+        const parts = entry.trim().split(/\s+/);
+        if (parts.length === 0) return null;
+
+        const lifecycle = parts[0];
+        if (!this.LIFECYCLE_STATES.includes(lifecycle)) return null;
+
+        if (parts.length === 1) {
+            // Just lifecycle, no version
+            return {
+                lifecycle,
+                versionSpec: null,
+                isRange: false,
+                isExact: false,
+                isUnbound: true, // No version means "all versions"
+                startVersion: null,
+                endVersion: null
+            };
+        }
+
+        const versionSpec = parts[1];
+
+        // Check for 'all'
+        if (versionSpec === 'all') {
+            return {
+                lifecycle,
+                versionSpec: 'all',
+                isRange: false,
+                isExact: false,
+                isUnbound: true,
+                startVersion: null,
+                endVersion: null
+            };
+        }
+
+        // Check for exact version (=x.x)
+        if (versionSpec.startsWith('=')) {
+            const version = this.parseVersion(versionSpec.substring(1));
+            return {
+                lifecycle,
+                versionSpec,
+                isRange: false,
+                isExact: true,
+                isUnbound: false,
+                startVersion: version,
+                endVersion: version
+            };
+        }
+
+        // Check for range (x.x-y.y)
+        if (versionSpec.includes('-')) {
+            const rangeParts = versionSpec.split('-');
+            if (rangeParts.length === 2) {
+                const startVersion = this.parseVersion(rangeParts[0]);
+                const endVersion = this.parseVersion(rangeParts[1]);
+                return {
+                    lifecycle,
+                    versionSpec,
+                    isRange: true,
+                    isExact: false,
+                    isUnbound: false,
+                    startVersion,
+                    endVersion
+                };
+            }
+        }
+
+        // Greater than or equal (x.x or x.x+)
+        const versionStr = versionSpec.endsWith('+') ? versionSpec.slice(0, -1) : versionSpec;
+        const version = this.parseVersion(versionStr);
+        return {
+            lifecycle,
+            versionSpec,
+            isRange: false,
+            isExact: false,
+            isUnbound: true, // Greater-than-or-equal is unbound
+            startVersion: version,
+            endVersion: null // Infinity
+        };
+    }
+
+    /**
+     * Parse a version string into an array of numbers
+     */
+    private parseVersion(versionStr: string): number[] | null {
+        if (!versionStr) return null;
+        const parts = versionStr.split('.').map(p => parseInt(p, 10));
+        if (parts.some(isNaN)) return null;
+        return parts;
+    }
+
+    /**
+     * Compare two version arrays
+     * Returns: -1 if v1 < v2, 0 if equal, 1 if v1 > v2
+     */
+    private compareVersions(v1: number[], v2: number[]): number {
+        const maxLen = Math.max(v1.length, v2.length);
+        for (let i = 0; i < maxLen; i++) {
+            const p1 = v1[i] || 0;
+            const p2 = v2[i] || 0;
+            if (p1 < p2) return -1;
+            if (p1 > p2) return 1;
+        }
+        return 0;
+    }
+
+    /**
+     * Find overlapping entries and return details about the overlap
+     * Returns: [entry1, entry2, overlapping version] or null if no overlap
+     */
+    private findOverlappingEntries(entries: Array<{
+        originalEntry: string;
+        isRange: boolean;
+        isExact: boolean;
+        isUnbound: boolean;
+        startVersion: number[] | null;
+        endVersion: number[] | null;
+    }>): [string, string, string] | null {
+        for (let i = 0; i < entries.length; i++) {
+            for (let j = i + 1; j < entries.length; j++) {
+                const overlapVersion = this.getOverlapVersion(entries[i], entries[j]);
+                if (overlapVersion) {
+                    return [entries[i].originalEntry, entries[j].originalEntry, overlapVersion];
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get the overlapping version between two entries, or null if no overlap
+     */
+    private getOverlapVersion(a: {
+        isRange: boolean;
+        isExact: boolean;
+        isUnbound: boolean;
+        startVersion: number[] | null;
+        endVersion: number[] | null;
+    }, b: {
+        isRange: boolean;
+        isExact: boolean;
+        isUnbound: boolean;
+        startVersion: number[] | null;
+        endVersion: number[] | null;
+    }): string | null {
+        // If either has no version info, can't determine overlap
+        if (!a.startVersion || !b.startVersion) return null;
+
+        // For unbound entries (x.x+), they extend to infinity
+        const aEnd = a.isUnbound ? [99999, 99999, 99999] : (a.endVersion || a.startVersion);
+        const bEnd = b.isUnbound ? [99999, 99999, 99999] : (b.endVersion || b.startVersion);
+
+        // Check if ranges overlap: a.start <= b.end AND b.start <= a.end
+        const aStartLeBEnd = this.compareVersions(a.startVersion, bEnd) <= 0;
+        const bStartLeAEnd = this.compareVersions(b.startVersion, aEnd) <= 0;
+
+        if (aStartLeBEnd && bStartLeAEnd) {
+            // Find the overlapping version - it's the maximum of the two start versions
+            // (the point where both ranges begin to cover)
+            const overlapStart = this.compareVersions(a.startVersion, b.startVersion) >= 0 
+                ? a.startVersion 
+                : b.startVersion;
+            return overlapStart.join('.');
+        }
+
+        return null;
     }
 
     private validateProducts(products: unknown[], errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
@@ -565,23 +882,35 @@ export class FrontmatterValidationProvider {
 
     private findValueRange(fieldName: string, document: vscode.TextDocument, startLine: number): vscode.Range | null {
         // Find the value for a field in the document
+        // Escape special regex characters in fieldName
+        const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
         for (let i = startLine; i < document.lineCount; i++) {
-            const line = document.lineAt(i);
+            const lineText = document.lineAt(i).text;
             
-            // Handle regular field: value pattern
-            let valueMatch = line.text.match(new RegExp(`^\\s*${fieldName}\\s*:\\s*(.+)$`));
-            if (valueMatch) {
-                const valueStart = line.text.indexOf(valueMatch[1]);
-                const valueEnd = valueStart + valueMatch[1].length;
-                return new vscode.Range(i, valueStart, i, valueEnd);
-            }
+            // Simple approach: find the field name followed by colon
+            const fieldPattern = new RegExp(`(^|\\s)${escapedFieldName}\\s*:`);
+            const fieldMatch = lineText.match(fieldPattern);
             
-            // Handle array item pattern: - field: value
-            valueMatch = line.text.match(new RegExp(`^\\s*-\\s+${fieldName}\\s*:\\s*(.+)$`));
-            if (valueMatch) {
-                const valueStart = line.text.indexOf(valueMatch[1]);
-                const valueEnd = valueStart + valueMatch[1].length;
-                return new vscode.Range(i, valueStart, i, valueEnd);
+            if (fieldMatch) {
+                // Find the colon position
+                const colonIndex = lineText.indexOf(':', fieldMatch.index);
+                if (colonIndex !== -1) {
+                    // Value starts after the colon and any whitespace
+                    let valueStart = colonIndex + 1;
+                    while (valueStart < lineText.length && lineText[valueStart] === ' ') {
+                        valueStart++;
+                    }
+                    // Value ends at end of line (trimming trailing whitespace)
+                    let valueEnd = lineText.length;
+                    while (valueEnd > valueStart && lineText[valueEnd - 1] === ' ') {
+                        valueEnd--;
+                    }
+                    
+                    if (valueEnd > valueStart) {
+                        return new vscode.Range(i, valueStart, i, valueEnd);
+                    }
+                }
             }
         }
         return null;

@@ -196,34 +196,16 @@ export const frontmatterSchema = {
       "oneOf": [
         {
           "type": "string",
-          "enum": ["ga", "preview", "beta", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"]
+          "enum": ["ga", "preview", "beta", "deprecated", "removed", "unavailable", "planned", "development", "discontinued"],
+          "description": "Simple lifecycle state without version"
         },
         {
           "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
-        },
-        {
-          "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
-        },
-        {
-          "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
-        },
-        {
-          "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
-        },
-        {
-          "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+[0-9]+(\\.[0-9]+)*$"
-        },
-        {
-          "type": "string",
-          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\\s+all$"
+          "pattern": "^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\\s+(all|=[0-9]+(\\.[0-9]+)*|[0-9]+(\\.[0-9]+)*-[0-9]+(\\.[0-9]+)*|[0-9]+(\\.[0-9]+)*\\+?))?(,\\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\\s+(all|=[0-9]+(\\.[0-9]+)*|[0-9]+(\\.[0-9]+)*-[0-9]+(\\.[0-9]+)*|[0-9]+(\\.[0-9]+)*\\+?))?)*$",
+          "description": "Lifecycle state with optional version specifier (all, =x.x, x.x-y.y, x.x, x.x+), supports multiple comma-separated entries"
         }
       ],
-      "description": "AppliesCollection can be a simple lifecycle state, lifecycle with version, lifecycle with 'all', or comma-separated list of these patterns"
+      "description": "AppliesCollection supports: lifecycle state alone, with 'all', with version (x.x, x.x+), with exact version (=x.x), with range (x.x-y.y), or comma-separated combinations"
     },
     "deploymentApplicability": {
       "type": "object",

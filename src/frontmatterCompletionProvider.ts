@@ -655,11 +655,20 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
 
         // Common patterns with versions (lower priority)
         const commonPatterns = [
-            { pattern: 'ga 9.0', description: 'Generally available from version 9.0' },
-            { pattern: 'ga 10.0', description: 'Generally available from version 10.0' },
-            { pattern: 'beta 9.1', description: 'Beta release from version 9.1' },
-            { pattern: 'preview 1.0.0', description: 'Preview release from version 1.0.0' },
-            { pattern: 'deprecated 8.0', description: 'Deprecated since version 8.0' }
+            // Greater than or equal (explicit)
+            { pattern: 'ga 9.1+', description: 'Generally available from version 9.1 and later' },
+            { pattern: 'preview 9.0+', description: 'Preview from version 9.0 and later' },
+            { pattern: 'beta 9.1+', description: 'Beta from version 9.1 and later' },
+            { pattern: 'deprecated 8.0+', description: 'Deprecated since version 8.0 and later' },
+            // Version ranges
+            { pattern: 'preview 9.0-9.1', description: 'Preview from version 9.0 to 9.1' },
+            { pattern: 'beta 9.0-9.2', description: 'Beta from version 9.0 to 9.2' },
+            // Exact versions
+            { pattern: 'ga =9.1', description: 'Generally available in exactly version 9.1' },
+            { pattern: 'beta =9.0', description: 'Beta in exactly version 9.0' },
+            // Comma-separated patterns
+            { pattern: 'ga 9.2+, preview 9.0-9.1', description: 'GA from 9.2+, Preview from 9.0 to 9.1' },
+            { pattern: 'ga 9.1+, beta =9.0', description: 'GA from 9.1+, Beta in exactly 9.0' }
         ];
 
         for (const {pattern, description} of commonPatterns) {
