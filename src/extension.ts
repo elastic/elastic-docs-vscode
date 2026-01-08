@@ -31,6 +31,7 @@ import { SubstitutionCodeActionProvider } from './substitutionCodeActionProvider
 import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator';
 import { substitutionCache, initializeSubstitutionsForWeb } from './substitutions';
 import { VersionsCache } from './versionsCache';
+import { ValeUpdateChecker } from './valeUpdateChecker';
 
 import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
@@ -57,6 +58,12 @@ export function activate(context: vscode.ExtensionContext): void {
         substitutionCache.clear();
     }).catch(err => {
         outputChannel.appendLine(`Failed to initialize substitutions for web: ${err}`);
+    });
+
+    // Check for Vale style guide updates (async, non-blocking)
+    const valeUpdateChecker = ValeUpdateChecker.getInstance();
+    valeUpdateChecker.checkForUpdates().catch(err => {
+        outputChannel.appendLine(`Failed to check for Vale updates: ${err}`);
     });
 
     // Apply color customizations programmatically
@@ -333,6 +340,31 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showErrorMessage(`Failed to refresh versions cache: ${error}`);
                 outputChannel.appendLine(`Error refreshing versions cache: ${error}`);
             }
+        })
+    );
+
+    // Register command to manually check for Vale style guide updates
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.checkValeUpdates', async () => {
+            try {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Checking for Vale style guide updates...",
+                    cancellable: false
+                }, async () => {
+                    await valeUpdateChecker.checkForUpdates();
+                });
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to check for Vale updates: ${error}`);
+                outputChannel.appendLine(`Error checking for Vale updates: ${error}`);
+            }
+        })
+    );
+
+    // Register command to test Vale update notification (for development/testing)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.testValeUpdateNotification', async () => {
+            await valeUpdateChecker.simulateUpdateNotification();
         })
     );
 
