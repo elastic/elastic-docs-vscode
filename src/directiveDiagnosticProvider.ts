@@ -21,7 +21,7 @@ import * as vscode from 'vscode';
 import { DIRECTIVES } from './directives';
 import { outputChannel } from './logger';
 import { APPLIES_TO_KEYS } from './roleCompletionProvider';
-import { validateAppliesToValue, LIFECYCLE_STATES } from './appliesToValidator';
+import { validateAppliesToValue } from './appliesToValidator';
 
 interface DirectiveBlock {
     opening: string;

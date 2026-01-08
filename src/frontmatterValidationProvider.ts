@@ -20,12 +20,7 @@
 import * as vscode from 'vscode';
 import { frontmatterSchema } from './frontmatterSchema';
 import { performanceLogger } from './performanceLogger';
-import {
-    LIFECYCLE_STATES,
-    SINGLE_ENTRY_PATTERN,
-    validateAppliesToValue,
-    ValidationDiagnostic
-} from './appliesToValidator';
+import { validateAppliesToValue } from './appliesToValidator';
 
 interface SchemaProperty {
     type?: string;
