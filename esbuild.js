@@ -46,7 +46,7 @@ const webOptions = {
   platform: 'browser',
   // Mark Node.js built-ins as external so they don't cause errors
   // In the web version, we'll need to handle these differently
-  external: [...baseOptions.external, 'path', 'fs', 'https'],
+  external: [...baseOptions.external, 'path', 'fs', 'https', 'os'],
   define: {
     'process.env.IS_WEB': 'true',
   },

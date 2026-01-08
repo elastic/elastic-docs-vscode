@@ -51,6 +51,14 @@
       {
         "command": "elastic-docs-v3.refreshVersions",
         "title": "Elastic Docs: Refresh Versions Cache"
+      },
+      {
+        "command": "elastic-docs-v3.checkValeUpdates",
+        "title": "Elastic Docs: Check for Vale Style Guide Updates"
+      },
+      {
+        "command": "elastic-docs-v3.testValeUpdateNotification",
+        "title": "Elastic Docs: Test Vale Update Notification"
       }
     ]
   },
