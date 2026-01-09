@@ -20,6 +20,8 @@
 import * as vscode from 'vscode';
 import { DIRECTIVES } from './directives';
 import { outputChannel } from './logger';
+import { APPLIES_TO_KEYS } from './roleCompletionProvider';
+import { validateAppliesToValue } from './appliesToValidator';
 
 interface DirectiveBlock {
     opening: string;
@@ -56,6 +58,14 @@ export class DirectiveDiagnosticProvider {
             const errors = this.validateDirectiveBlock(block, document);
             diagnostics.push(...errors);
         }
+        
+        // Validate inline {applies_to} roles
+        const inlineAppliesTo = this.validateInlineAppliesToRoles(document);
+        diagnostics.push(...inlineAppliesTo);
+        
+        // Validate section-level {applies_to} directives
+        const sectionAppliesTo = this.validateSectionAppliesToDirectives(document);
+        diagnostics.push(...sectionAppliesTo);
         
         return diagnostics;
     }
@@ -290,5 +300,152 @@ export class DirectiveDiagnosticProvider {
         }
         
         return diagnostics;
+    }
+
+    /**
+     * Validate inline {applies_to}`...` roles
+     */
+    private validateInlineAppliesToRoles(document: vscode.TextDocument): vscode.Diagnostic[] {
+        const diagnostics: vscode.Diagnostic[] = [];
+        const inlinePattern = /\{applies_to\}`([^`]+)`/g;
+
+        for (let lineNum = 0; lineNum < document.lineCount; lineNum++) {
+            const line = document.lineAt(lineNum);
+            let match;
+
+            while ((match = inlinePattern.exec(line.text)) !== null) {
+                const content = match[1];
+                const contentStart = match.index + '{applies_to}`'.length;
+                const contentRange = new vscode.Range(
+                    lineNum, contentStart,
+                    lineNum, contentStart + content.length
+                );
+
+                // Validate the applies_to content
+                const errors = this.validateAppliesToContent(content, contentRange);
+                diagnostics.push(...errors);
+            }
+        }
+
+        return diagnostics;
+    }
+
+    /**
+     * Validate section-level ```{applies_to} directives
+     */
+    private validateSectionAppliesToDirectives(document: vscode.TextDocument): vscode.Diagnostic[] {
+        const diagnostics: vscode.Diagnostic[] = [];
+        const text = document.getText();
+        
+        // Match section-level applies_to blocks:
+        // ```{applies_to} or ```yaml {applies_to}
+        const sectionPattern = /```(?:yaml\s+)?\{applies_to\}\s*\n([\s\S]*?)```/g;
+        let match;
+
+        while ((match = sectionPattern.exec(text)) !== null) {
+            const content = match[1];
+            const contentStartOffset = match.index + match[0].indexOf(content);
+            const contentStartPos = document.positionAt(contentStartOffset);
+            
+            // Parse each line of the YAML content
+            const lines = content.split('\n');
+            let currentLine = contentStartPos.line;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed && !trimmed.startsWith('#')) {
+                    // Parse key: value
+                    const kvMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*)$/);
+                    if (kvMatch) {
+                        const key = kvMatch[1];
+                        const value = kvMatch[2];
+                        
+                        // Find the actual position in the document
+                        const docLine = document.lineAt(currentLine);
+                        const keyStart = docLine.text.indexOf(key);
+                        const valueStart = docLine.text.indexOf(value, keyStart + key.length);
+                        
+                        // Validate key
+                        if (!APPLIES_TO_KEYS.includes(key)) {
+                            const keyRange = new vscode.Range(
+                                currentLine, keyStart,
+                                currentLine, keyStart + key.length
+                            );
+                            diagnostics.push(new vscode.Diagnostic(
+                                keyRange,
+                                `Unknown applies_to key '${key}'. Valid keys: ${APPLIES_TO_KEYS.slice(0, 5).join(', ')}...`,
+                                vscode.DiagnosticSeverity.Warning
+                            ));
+                        }
+                        
+                        // Validate value if present
+                        if (value) {
+                            const valueRange = new vscode.Range(
+                                currentLine, valueStart,
+                                currentLine, valueStart + value.length
+                            );
+                            const errors = this.validateAppliesToValueLocal(value, valueRange);
+                            diagnostics.push(...errors);
+                        }
+                    }
+                }
+                currentLine++;
+            }
+        }
+
+        return diagnostics;
+    }
+
+    /**
+     * Validate applies_to content (key: value format)
+     */
+    private validateAppliesToContent(content: string, range: vscode.Range): vscode.Diagnostic[] {
+        const diagnostics: vscode.Diagnostic[] = [];
+        
+        // Parse key: value format
+        const kvMatch = content.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*)$/);
+        if (!kvMatch) {
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                `Invalid applies_to format. Expected 'key: value' format (e.g., 'stack: ga 9.1+')`,
+                vscode.DiagnosticSeverity.Error
+            ));
+            return diagnostics;
+        }
+
+        const key = kvMatch[1];
+        const value = kvMatch[2];
+
+        // Validate key
+        if (!APPLIES_TO_KEYS.includes(key)) {
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                `Unknown applies_to key '${key}'. Valid keys: ${APPLIES_TO_KEYS.slice(0, 5).join(', ')}...`,
+                vscode.DiagnosticSeverity.Warning
+            ));
+        }
+
+        // Validate value
+        if (value) {
+            const errors = this.validateAppliesToValueLocal(value, range);
+            diagnostics.push(...errors);
+        }
+
+        return diagnostics;
+    }
+
+    /**
+     * Validate applies_to value using shared validator
+     */
+    private validateAppliesToValueLocal(value: string, range: vscode.Range): vscode.Diagnostic[] {
+        // Use shared validator
+        const sharedDiagnostics = validateAppliesToValue(value);
+        
+        // Convert to vscode.Diagnostic with the provided range
+        return sharedDiagnostics.map(diag => new vscode.Diagnostic(
+            range,
+            diag.message,
+            diag.severity
+        ));
     }
 } 

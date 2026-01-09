@@ -20,6 +20,7 @@
 import * as vscode from 'vscode';
 import { frontmatterSchema } from './frontmatterSchema';
 import { performanceLogger } from './performanceLogger';
+import { validateAppliesToValue } from './appliesToValidator';
 
 interface SchemaProperty {
     type?: string;
@@ -56,20 +57,6 @@ export class FrontmatterValidationProvider {
     private schema: FrontmatterSchema;
     private readonly FRONTMATTER_START = /^---\s*$/;
     private readonly FRONTMATTER_END = /^---\s*$/;
-    
-    // Lifecycle states for validation (excluding 'all' which is only valid with a lifecycle state)
-    private readonly LIFECYCLE_STATES = [
-        'ga', 'preview', 'beta', 'deprecated', 'removed', 
-        'unavailable', 'planned', 'development', 'discontinued'
-    ];
-    
-    // Version pattern for lifecycle states
-    private readonly VERSION_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
-    private readonly COMMA_SEPARATED_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*)?$/;
-    
-    // Patterns for "all" validation - only allowed with lifecycle states
-    private readonly LIFECYCLE_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)\s+all$/;
-    private readonly COMMA_SEPARATED_WITH_ALL_PATTERN = /^(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?,\s*(preview|beta|ga|deprecated|removed|unavailable|planned|development|discontinued)(\s+[0-9]+(\.[0-9]+)*|\s+all)?$/;
 
     constructor() {
         this.schema = frontmatterSchema as unknown as FrontmatterSchema;
@@ -452,43 +439,24 @@ export class FrontmatterValidationProvider {
     }
 
     private validateLifecycleValue(fieldPath: string, value: string, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
-        // Check if it's a simple lifecycle state
-        if (this.LIFECYCLE_STATES.includes(value)) {
+        // Use shared validator
+        const diagnostics = validateAppliesToValue(value);
+        
+        if (diagnostics.length === 0) {
             return;
         }
 
-        // Check if it matches lifecycle + version pattern
-        if (this.VERSION_PATTERN.test(value) || this.COMMA_SEPARATED_PATTERN.test(value)) {
-            return;
-        }
-
-        // Check if it matches lifecycle + "all" pattern
-        if (this.LIFECYCLE_ALL_PATTERN.test(value) || this.COMMA_SEPARATED_WITH_ALL_PATTERN.test(value)) {
-            return;
-        }
-
-        // Check if it's just "all" by itself (invalid)
-        if (value === 'all') {
-            const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
-            if (valueRange) {
-                errors.push({
-                    range: valueRange,
-                    message: `Invalid lifecycle value '${value}'. 'all' must be preceded by a lifecycle state (e.g., 'ga all', 'beta all')`,
-                    severity: vscode.DiagnosticSeverity.Error,
-                    code: 'invalid_lifecycle_value'
-                });
-            }
-            return;
-        }
-
-        // Invalid lifecycle value
+        // Find the value range in the document
         const valueRange = this.findValueRange(fieldPath.split('.').pop()!, document, startLine);
-        if (valueRange) {
+        if (!valueRange) return;
+
+        // Convert shared diagnostics to ValidationError format
+        for (const diag of diagnostics) {
             errors.push({
                 range: valueRange,
-                message: `Invalid lifecycle value '${value}'. Expected format: 'state', 'state version', or 'state all' (e.g., 'ga', 'beta 9.1', 'ga all')`,
-                severity: vscode.DiagnosticSeverity.Error,
-                code: 'invalid_lifecycle_value'
+                message: diag.message,
+                severity: diag.severity,
+                code: diag.code
             });
         }
     }
@@ -565,23 +533,35 @@ export class FrontmatterValidationProvider {
 
     private findValueRange(fieldName: string, document: vscode.TextDocument, startLine: number): vscode.Range | null {
         // Find the value for a field in the document
+        // Escape special regex characters in fieldName
+        const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
         for (let i = startLine; i < document.lineCount; i++) {
-            const line = document.lineAt(i);
+            const lineText = document.lineAt(i).text;
             
-            // Handle regular field: value pattern
-            let valueMatch = line.text.match(new RegExp(`^\\s*${fieldName}\\s*:\\s*(.+)$`));
-            if (valueMatch) {
-                const valueStart = line.text.indexOf(valueMatch[1]);
-                const valueEnd = valueStart + valueMatch[1].length;
-                return new vscode.Range(i, valueStart, i, valueEnd);
-            }
+            // Simple approach: find the field name followed by colon
+            const fieldPattern = new RegExp(`(^|\\s)${escapedFieldName}\\s*:`);
+            const fieldMatch = lineText.match(fieldPattern);
             
-            // Handle array item pattern: - field: value
-            valueMatch = line.text.match(new RegExp(`^\\s*-\\s+${fieldName}\\s*:\\s*(.+)$`));
-            if (valueMatch) {
-                const valueStart = line.text.indexOf(valueMatch[1]);
-                const valueEnd = valueStart + valueMatch[1].length;
-                return new vscode.Range(i, valueStart, i, valueEnd);
+            if (fieldMatch) {
+                // Find the colon position
+                const colonIndex = lineText.indexOf(':', fieldMatch.index);
+                if (colonIndex !== -1) {
+                    // Value starts after the colon and any whitespace
+                    let valueStart = colonIndex + 1;
+                    while (valueStart < lineText.length && lineText[valueStart] === ' ') {
+                        valueStart++;
+                    }
+                    // Value ends at end of line (trimming trailing whitespace)
+                    let valueEnd = lineText.length;
+                    while (valueEnd > valueStart && lineText[valueEnd - 1] === ' ') {
+                        valueEnd--;
+                    }
+                    
+                    if (valueEnd > valueStart) {
+                        return new vscode.Range(i, valueStart, i, valueEnd);
+                    }
+                }
             }
         }
         return null;
