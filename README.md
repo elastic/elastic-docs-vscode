@@ -17,6 +17,7 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 ### Validation and diagnostics
 - **Frontmatter validation**: Validates frontmatter fields against schema.
 - **Directive syntax validation**: Real-time validation with red underlines and hover cards for errors.
+- **Applies-to validation**: Validates `applies_to` syntax in frontmatter, inline roles, and section-level directives, including version format, range overlaps, and semantic rules.
 - **Substitution validation**: Warns when literal values should be replaced with substitution variables.
 
 ### Enhanced user experience
@@ -25,6 +26,7 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - **Enhanced completion tooltips**: Get full variable values when selecting from autocompletion.
 - **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, substitution variables, and mutation operators that works alongside standard Markdown highlighting.
 - **Built-in versions**: Automatically fetches and caches version substitutions from the docs-builder repository, available as `{{version.*}}` variables with autocompletion support.
+- **Vale style guide updates**: Automatically checks for updates to the [Elastic Vale style guide](https://github.com/elastic/vale-rules) and notifies you when a new version is available.
 
 ## Inline roles
 
@@ -38,6 +40,27 @@ Use `{kbd}` to format keyboard shortcuts. Type `{kbd}` followed by a backtick to
 
 ### Applies-to roles
 Use `{applies_to}` to specify product or deployment applicability. Type `{applies_to}` followed by a backtick to see available product keys and lifecycle states.
+
+**Version syntax options:**
+
+```markdown
+{applies_to}`stack: ga 9.1`      # 9.1+ (implicit, greater than or equal)
+{applies_to}`stack: ga 9.1+`     # 9.1+ (explicit)
+{applies_to}`stack: preview 9.0-9.2`  # Version range (9.0 through 9.2)
+{applies_to}`stack: beta =9.1`   # Exact version only
+```
+
+**Multiple lifecycle entries:**
+
+```markdown
+{applies_to}`stack: preview 9.0-9.1, ga 9.2+`
+{applies_to}`elasticsearch: preview 9.0-9.1, ga 9.2-9.5, deprecated 9.6+`
+```
+
+**Validation rules:**
+- Version ranges must not overlap within the same key.
+- Only one unbound value (with `+`) is allowed per key.
+- The extension provides hints for implicit version syntax and suggests explicit `+` or `=`.
 
 ### Subs roles
 Use `{subs}` for inline code that contains substitution variables. Type `{subs}` followed by a backtick, then use `{{variable}}` syntax with full autocompletion and mutation support.
@@ -58,6 +81,7 @@ Example: `{subs}`wget elasticsearch-{{version}}.tar.gz``
 - `{tab-set}` and `{tab-item}` - Tabbed content (supports `:group:` and `:sync:`)
 - `{stepper}` and `{step}` - Step-by-step guides
 - `{applies-switch}` and `{applies-item}` - Tabbed content with applies_to badges
+- `{applies_to}` - Section-level applicability markers with version syntax support
 
 ### Media and visuals
 - `{image}` - Images with alt text and sizing options
@@ -132,6 +156,23 @@ If you need to refresh the versions cache manually:
 
 The versions are sourced from the `versions.yml` file in the docs-builder repository and include all versioning systems defined there, such as stack versions, product-specific versions, and more.
 
+### Vale style guide update notifications
+
+If you have the [Elastic Vale style guide](https://github.com/elastic/vale-rules) installed locally, the extension automatically checks for updates when it activates. When a new version is available, a notification appears with two options:
+
+- **Update**: Runs the appropriate install script for your operating system in the integrated terminal.
+- **More Info**: Opens the vale-rules repository in your browser to view release notes and documentation.
+
+**Notes:**
+- The check only runs if Vale is installed locally (the extension looks for the VERSION file in the standard installation path).
+- If Vale is not installed, no notification is shown.
+- The check runs asynchronously and fails silently if the network is unavailable, so it never affects extension performance.
+
+**Manual check:**
+If you want to manually check for Vale style guide updates:
+1. Press `Ctrl/Cmd+Shift+P` to open the Command Palette.
+2. Run **Elastic Docs: Check for Vale Style Guide Updates**.
+
 ### Substitution validation and quick fixes
 
 The extension automatically detects when you're using literal values that can be replaced with substitution variables. For example, if you have a substitution variable `{{product.apm}}` defined in your `docset.yml` file with the value "APM", the extension shows a warning when you type "APM" directly in your content, suggesting you use `{{product.apm}}` instead.
@@ -161,6 +202,7 @@ This helps maintain consistency across your documentation and makes it easier to
    - Notice validation warnings for literal values that could use substitutions
    - Hover over variables with mutations to see transformation previews
    - Use the Command Palette to manually refresh versions cache if needed
+   - If you have Vale installed, watch for update notifications when new style guide versions are released
 
 ## Installation
 
