@@ -2,7 +2,7 @@
   "name": "elastic-docs-v3-utilities",
   "displayName": "Elastic Docs Utilities",
   "description": "Utilities for Elastic Docs authoring",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "publisher": "Elastic",
   "repository": {
     "type": "git",
@@ -59,6 +59,14 @@
       {
         "command": "elastic-docs-v3.testValeUpdateNotification",
         "title": "Elastic Docs: Test Vale Update Notification"
+      },
+      {
+        "command": "elastic-docs-v3.checkDocsBuilderUpdates",
+        "title": "Elastic Docs: Check for docs-builder Updates"
+      },
+      {
+        "command": "elastic-docs-v3.testDocsBuilderUpdateNotification",
+        "title": "Elastic Docs: Test docs-builder Update Notification"
       }
     ]
   },
