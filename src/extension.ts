@@ -32,6 +32,7 @@ import { UndefinedSubstitutionValidator } from './undefinedSubstitutionValidator
 import { substitutionCache, initializeSubstitutionsForWeb } from './substitutions';
 import { VersionsCache } from './versionsCache';
 import { ValeUpdateChecker } from './valeUpdateChecker';
+import { DocsBuilderUpdateChecker } from './docsBuilderUpdateChecker';
 
 import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
@@ -64,6 +65,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const valeUpdateChecker = ValeUpdateChecker.getInstance();
     valeUpdateChecker.checkForUpdates().catch(err => {
         outputChannel.appendLine(`Failed to check for Vale updates: ${err}`);
+    });
+
+    // Check for docs-builder installation and updates (async, non-blocking)
+    const docsBuilderUpdateChecker = DocsBuilderUpdateChecker.getInstance();
+    docsBuilderUpdateChecker.checkForUpdates().catch(err => {
+        outputChannel.appendLine(`Failed to check for docs-builder updates: ${err}`);
     });
 
     // Apply color customizations programmatically
@@ -365,6 +372,31 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('elastic-docs-v3.testValeUpdateNotification', async () => {
             await valeUpdateChecker.simulateUpdateNotification();
+        })
+    );
+
+    // Register command to manually check for docs-builder updates
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.checkDocsBuilderUpdates', async () => {
+            try {
+                await vscode.window.withProgress({
+                    location: vscode.ProgressLocation.Notification,
+                    title: "Checking for docs-builder updates...",
+                    cancellable: false
+                }, async () => {
+                    await docsBuilderUpdateChecker.checkForUpdates(true);
+                });
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to check for docs-builder updates: ${error}`);
+                outputChannel.appendLine(`Error checking for docs-builder updates: ${error}`);
+            }
+        })
+    );
+
+    // Register command to test docs-builder update notification (for development/testing)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.testDocsBuilderUpdateNotification', async () => {
+            await docsBuilderUpdateChecker.simulateUpdateNotification();
         })
     );
 
