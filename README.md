@@ -27,6 +27,7 @@ An extension for Visual Studio Code and compatible IDEs that provides autocomple
 - **Syntax highlighting**: Enhanced syntax highlighting for directives, parameters, roles, substitution variables, and mutation operators that works alongside standard Markdown highlighting.
 - **Built-in versions**: Automatically fetches and caches version substitutions from the docs-builder repository, available as `{{version.*}}` variables with autocompletion support.
 - **Vale style guide updates**: Automatically checks for updates to the [Elastic Vale style guide](https://github.com/elastic/vale-rules) and notifies you when a new version is available.
+- **MCP server auto-install**: Detects whether the [Elastic Docs MCP server](https://docs-v3-preview.elastic.dev/elastic/docs-builder/tree/main/mcp) is configured for your editor (Cursor or VS Code) and offers to install it with a single click.
 
 ## Inline roles
 
@@ -172,6 +173,26 @@ If you have the [Elastic Vale style guide](https://github.com/elastic/vale-rules
 If you want to manually check for Vale style guide updates:
 1. Press `Ctrl/Cmd+Shift+P` to open the Command Palette.
 2. Run **Elastic Docs: Check for Vale Style Guide Updates**.
+
+### MCP server auto-install
+
+The extension checks whether the [Elastic Docs MCP server](https://docs-v3-preview.elastic.dev/elastic/docs-builder/tree/main/mcp) is configured in your workspace. If it is not, a notification appears with three options:
+
+- **Install**: Opens your editor's native MCP install prompt, which adds and enables the server automatically.
+- **Learn More**: Opens the MCP server documentation page.
+- **Don't Show Again**: Dismisses the notification permanently.
+
+The MCP server enables AI assistants and coding agents to search, retrieve, and analyze Elastic documentation directly from within your editor.
+
+**Notes:**
+- The check detects whether you are running Cursor or VS Code and uses the correct config format for each.
+- If the `elastic-docs` server is already configured in the workspace, no notification is shown.
+- The check runs asynchronously and fails silently if anything goes wrong, so it never affects extension performance.
+
+**Manual install:**
+If you want to manually trigger the MCP install check:
+1. Press `Ctrl/Cmd+Shift+P` to open the Command Palette.
+2. Run **Elastic Docs: Install MCP Server**.
 
 ### Substitution validation and quick fixes
 
