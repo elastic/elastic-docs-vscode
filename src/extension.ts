@@ -33,6 +33,7 @@ import { substitutionCache, initializeSubstitutionsForWeb } from './substitution
 import { VersionsCache } from './versionsCache';
 import { ValeUpdateChecker } from './valeUpdateChecker';
 import { DocsBuilderUpdateChecker } from './docsBuilderUpdateChecker';
+import { McpInstallChecker } from './mcpInstallChecker';
 
 import { outputChannel } from './logger';
 import { performanceLogger } from './performanceLogger';
@@ -71,6 +72,12 @@ export function activate(context: vscode.ExtensionContext): void {
     const docsBuilderUpdateChecker = DocsBuilderUpdateChecker.getInstance();
     docsBuilderUpdateChecker.checkForUpdates().catch(err => {
         outputChannel.appendLine(`Failed to check for docs-builder updates: ${err}`);
+    });
+
+    // Check for MCP server configuration (async, non-blocking)
+    const mcpInstallChecker = McpInstallChecker.getInstance(context);
+    mcpInstallChecker.checkAndPrompt().catch(err => {
+        outputChannel.appendLine(`Failed to check MCP installation: ${err}`);
     });
 
     // Apply color customizations programmatically
@@ -397,6 +404,20 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('elastic-docs-v3.testDocsBuilderUpdateNotification', async () => {
             await docsBuilderUpdateChecker.simulateUpdateNotification();
+        })
+    );
+
+    // Register command to manually check/install MCP server
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.checkMcpInstall', async () => {
+            await mcpInstallChecker.checkAndPrompt();
+        })
+    );
+
+    // Register command to test MCP install notification (for development/testing)
+    context.subscriptions.push(
+        vscode.commands.registerCommand('elastic-docs-v3.testMcpInstallNotification', async () => {
+            await mcpInstallChecker.simulateInstallNotification();
         })
     );
 
