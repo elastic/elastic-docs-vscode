@@ -33,7 +33,7 @@ export const KEYBOARD_SHORTCUTS = [
 
 export const APPLIES_TO_KEYS = [
     'stack', 'deployment', 'serverless', 'product',
-    'ece', 'eck', 'ess', 'self',
+    'ece', 'eck', 'ech', 'ess', 'self',
     'elasticsearch', 'observability', 'security',
     'ecctl', 'curator',
     'apm_agent_android', 'apm_agent_dotnet', 'apm_agent_go', 'apm_agent_ios',

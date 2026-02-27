@@ -71,6 +71,7 @@ export const PRODUCTS: Record<string, string> = {
   'elastic-stack': 'Elastic Stack',
   'elasticsearch': 'Elasticsearch',
   'elasticsearch-client': 'Elasticsearch Client',
+  'ech': 'Elastic Cloud Hosted',
   'ess': 'Elastic Cloud Hosted',
   'filebeat': 'Filebeat',
   'fleet': 'Fleet',

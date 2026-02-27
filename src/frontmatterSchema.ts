@@ -224,7 +224,11 @@ export const frontmatterSchema = {
         },
         "ess": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Cloud (ESS) applicability"
+          "description": "Elastic Cloud Hosted applicability (deprecated: use ech)"
+        },
+        "ech": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud Hosted applicability"
         }
       },
       "additionalProperties": false
@@ -303,7 +307,7 @@ export const frontmatterSchema = {
       "description": "Complete list of valid keys recognized by the parser",
       "keys": [
         "stack", "deployment", "serverless", "product",
-        "ece", "eck", "ess", "self",
+        "ece", "eck", "ech", "ess", "self",
         "elasticsearch", "observability", "security",
         "ecctl", "curator",
         "apm_agent_android", "apm_agent_dotnet", "apm_agent_go", "apm_agent_ios", "apm_agent_java", "apm_agent_node", "apm_agent_php", "apm_agent_python", "apm_agent_ruby", "apm_agent_rum",

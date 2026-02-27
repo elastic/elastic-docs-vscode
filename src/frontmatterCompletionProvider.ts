@@ -770,7 +770,8 @@ export class FrontmatterCompletionProvider implements vscode.CompletionItemProvi
             'self': 'Self-managed deployment',
             'ece': 'Elastic Cloud Enterprise',
             'eck': 'Elastic Cloud on Kubernetes',
-            'ess': 'Elastic Cloud (ESS)',
+            'ess': 'Elastic Cloud Hosted (deprecated: use ech)',
+            'ech': 'Elastic Cloud Hosted',
             'elasticsearch': 'Elasticsearch Serverless',
             'observability': 'Observability Serverless',
             'security': 'Security Serverless'
