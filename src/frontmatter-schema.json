@@ -153,7 +153,7 @@
             }
           },
           "then": {
-            "description": "When deployment is a string, it applies the same applicability to all deployment types (ece, eck, ess, self)"
+            "description": "When deployment is a string, it applies the same applicability to all deployment types (ece, eck, ech, ess, self)"
           }
         },
         {
@@ -248,7 +248,11 @@
         },
         "ess": {
           "$ref": "#/definitions/appliesCollection",
-          "description": "Elastic Cloud (ESS) applicability"
+          "description": "Elastic Cloud Hosted applicability (deprecated: use ech)"
+        },
+        "ech": {
+          "$ref": "#/definitions/appliesCollection",
+          "description": "Elastic Cloud Hosted applicability"
         }
       },
       "additionalProperties": false
@@ -309,7 +313,7 @@
       "description": "Deploy and manage Elasticsearch, Kibana, and other Elastic Stack components in the cloud.",
       "applies_to": {
         "deployment": {
-          "ess": "ga 9.0",
+          "ech": "ga 9.0",
           "ece": "ga 9.0",
           "eck": "ga 9.0"
         },
@@ -439,8 +443,8 @@
           "name": "deployment_string_expansion",
           "description": "When deployment is a string value, it automatically applies to all deployment types",
           "condition": "deployment is string",
-          "effect": "Sets ece, eck, ess, and self to the same value",
-          "example": "deployment: 'ga 9.0' → {ece: 'ga 9.0', eck: 'ga 9.0', ess: 'ga 9.0', self: 'ga 9.0'}"
+          "effect": "Sets ece, eck, ech, ess, and self to the same value",
+          "example": "deployment: 'ga 9.0' → {ece: 'ga 9.0', eck: 'ga 9.0', ech: 'ga 9.0', ess: 'ga 9.0', self: 'ga 9.0'}"
         },
         {
           "name": "serverless_string_expansion",
@@ -461,7 +465,7 @@
           "description": "Empty or null values default to 'ga' (generally available)",
           "condition": "field value is null, empty string, or whitespace",
           "effect": "Sets field to AppliesCollection.GenerallyAvailable",
-          "example": "deployment: null → deployment: {ece: 'ga', eck: 'ga', ess: 'ga', self: 'ga'}"
+          "example": "deployment: null → deployment: {ece: 'ga', eck: 'ga', ech: 'ga', ess: 'ga', self: 'ga'}"
         }
       ]
     },
@@ -471,7 +475,7 @@
         {
           "field": "deployment",
           "type": "string",
-          "affects": ["ece", "eck", "ess", "self"],
+          "affects": ["ece", "eck", "ech", "ess", "self"],
           "description": "String value gets expanded to all deployment types"
         },
         {
@@ -493,7 +497,7 @@
       "staticEnums": [
         {
           "field": "deployment",
-          "values": ["ece", "eck", "ess", "self"],
+          "values": ["ece", "eck", "ech", "ess", "self"],
           "type": "fixed",
           "description": "These deployment types are hardcoded in the enum"
         },
@@ -552,7 +556,7 @@
       "description": "Complete list of valid keys recognized by the parser",
       "keys": [
         "stack", "deployment", "serverless", "product",
-        "ece", "eck", "ess", "self",
+        "ece", "eck", "ech", "ess", "self",
         "elasticsearch", "observability", "security", 
         "ecctl", "curator",
         "apm_agent_android", "apm_agent_dotnet", "apm_agent_go", "apm_agent_ios", "apm_agent_java", "apm_agent_node", "apm_agent_php", "apm_agent_python", "apm_agent_ruby", "apm_agent_rum",
