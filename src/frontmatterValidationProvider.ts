@@ -444,7 +444,7 @@ export class FrontmatterValidationProvider {
         }
     }
 
-    private static readonly DEPLOYMENT_TYPES_NO_VERSION = ['ece', 'eck', 'ech', 'ess'];
+    private static readonly DEPLOYMENT_TYPES_NO_VERSION = ['ech', 'ess'];
     private static readonly HAS_VERSION_PATTERN = /^[a-z]+\s+\S/;
 
     private validateNoVersionOnDeploymentType(key: string, value: string, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
@@ -462,7 +462,7 @@ export class FrontmatterValidationProvider {
         if (valueRange) {
             errors.push({
                 range: valueRange,
-                message: `Deployment type '${key}' should not include a version. Only 'self' supports version specifiers.`,
+                message: `Deployment type '${key}' should not include a version. Only 'self', 'ece', and 'eck' support version specifiers.`,
                 severity: vscode.DiagnosticSeverity.Warning,
                 code: 'deployment_type_with_version'
             });
