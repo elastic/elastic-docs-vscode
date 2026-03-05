@@ -20,7 +20,8 @@
 import * as vscode from 'vscode';
 import { frontmatterSchema } from './frontmatterSchema';
 import { performanceLogger } from './performanceLogger';
-import { validateAppliesToValue } from './appliesToValidator';
+import { validateAppliesToValue, parseVersion, parseVersionEntry } from './appliesToValidator';
+import { VersionsCache } from './versionsCache';
 
 interface SchemaProperty {
     type?: string;
@@ -385,6 +386,7 @@ export class FrontmatterValidationProvider {
             if (typeof value === 'string') {
                 this.validateLifecycleValue(key, value, errors, document, startLine);
                 this.validateNoVersionOnDeploymentType(key, value, errors, document, startLine);
+                this.validateVersionInRange(key, key, value, errors, document, startLine);
             } else if (typeof value === 'object' && value !== null) {
                 // Nested object (like deployment/serverless)
                 for (const [nestedKey, nestedValue] of Object.entries(value)) {
@@ -397,6 +399,8 @@ export class FrontmatterValidationProvider {
                         if (key === 'deployment') {
                             this.validateNoVersionOnDeploymentType(nestedKey, nestedValue, errors, document, startLine);
                         }
+
+                        this.validateVersionInRange(nestedKey, nestedKey, nestedValue, errors, document, startLine);
                     }
                 }
 
@@ -466,6 +470,60 @@ export class FrontmatterValidationProvider {
                 severity: vscode.DiagnosticSeverity.Warning,
                 code: 'deployment_type_with_version'
             });
+        }
+    }
+
+    private static readonly VERSION_RANGE_MAJOR_BUFFER = 2;
+
+    private validateVersionInRange(cacheKey: string, fieldKey: string, value: string, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        const versionsCache = VersionsCache.getInstance();
+        const versions = versionsCache.getVersions();
+
+        if (Object.keys(versions).length === 0) {
+            return;
+        }
+
+        const currentStr = versions[cacheKey];
+        const baseStr = versions[`${cacheKey}.base`];
+        if (!currentStr || !baseStr) {
+            return;
+        }
+
+        const currentVer = parseVersion(currentStr);
+        const baseVer = parseVersion(baseStr);
+        if (!currentVer || !baseVer) {
+            return;
+        }
+
+        const baseMajor = baseVer[0];
+        const currentMajor = currentVer[0];
+        const entries = value.split(',').map(e => e.trim());
+
+        for (const entry of entries) {
+            const parsed = parseVersionEntry(entry);
+            if (!parsed) {
+                continue;
+            }
+
+            const versionsToCheck = [parsed.startVersion, parsed.endVersion].filter(
+                (v): v is number[] => v !== null
+            );
+
+            for (const ver of versionsToCheck) {
+                const major = ver[0];
+                if (major < baseMajor || major > currentMajor + FrontmatterValidationProvider.VERSION_RANGE_MAJOR_BUFFER) {
+                    const valueRange = this.findValueRange(fieldKey, document, startLine);
+                    if (valueRange) {
+                        errors.push({
+                            range: valueRange,
+                            message: `Version ${ver.join('.')} seems out of range for '${cacheKey}' (known versions: ${baseStr}–${currentStr}).`,
+                            severity: vscode.DiagnosticSeverity.Warning,
+                            code: 'version_out_of_range'
+                        });
+                    }
+                    return;
+                }
+            }
         }
     }
 
