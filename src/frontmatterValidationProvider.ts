@@ -364,9 +364,10 @@ export class FrontmatterValidationProvider {
             return;
         }
 
+        const appliesToObj = appliesTo as Record<string, unknown>;
         const knownKeys = this.schema.metadata.knownKeys.keys;
 
-        for (const [key, value] of Object.entries(appliesTo as Record<string, unknown>)) {
+        for (const [key, value] of Object.entries(appliesToObj)) {
             // Validate known keys
             if (!knownKeys.includes(key)) {
                 const keyRange = this.findFieldRange(key, document, startLine);
@@ -383,6 +384,7 @@ export class FrontmatterValidationProvider {
             // Validate lifecycle values
             if (typeof value === 'string') {
                 this.validateLifecycleValue(key, value, errors, document, startLine);
+                this.validateNoVersionOnDeploymentType(key, value, errors, document, startLine);
             } else if (typeof value === 'object' && value !== null) {
                 // Nested object (like deployment/serverless)
                 for (const [nestedKey, nestedValue] of Object.entries(value)) {
@@ -391,9 +393,97 @@ export class FrontmatterValidationProvider {
                     
                     if (typeof nestedValue === 'string') {
                         this.validateLifecycleValue(`${key}.${nestedKey}`, nestedValue, errors, document, startLine);
+
+                        if (key === 'deployment') {
+                            this.validateNoVersionOnDeploymentType(nestedKey, nestedValue, errors, document, startLine);
+                        }
                     }
                 }
+
+                // Warn when all values in deployment/serverless are identical (use string shorthand instead)
+                if (key === 'deployment' || key === 'serverless') {
+                    this.validateObjectNotAllIdentical(key, value as Record<string, unknown>, errors, document, startLine);
+                }
+
+                // Warn when ech and ess coexist under deployment
+                if (key === 'deployment') {
+                    this.validateEchEssMutualExclusion(value as Record<string, unknown>, errors, document, startLine);
+                }
             }
+        }
+
+        // Warn when ech and ess coexist as top-level applies_to keys
+        this.validateEchEssMutualExclusion(appliesToObj, errors, document, startLine);
+    }
+
+    private validateObjectNotAllIdentical(parentKey: string, obj: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        const values = Object.values(obj);
+        if (values.length < 2) {
+            return;
+        }
+
+        const allStrings = values.every(v => typeof v === 'string');
+        if (!allStrings) {
+            return;
+        }
+
+        const firstValue = values[0] as string;
+        const allIdentical = values.every(v => v === firstValue);
+        if (!allIdentical) {
+            return;
+        }
+
+        const keyRange = this.findFieldRange(parentKey, document, startLine);
+        if (keyRange) {
+            errors.push({
+                range: keyRange,
+                message: `All ${parentKey} types have the same value '${firstValue}'. Use the string shorthand instead: ${parentKey}: '${firstValue}'`,
+                severity: vscode.DiagnosticSeverity.Warning,
+                code: 'redundant_object_expansion'
+            });
+        }
+    }
+
+    private static readonly DEPLOYMENT_TYPES_NO_VERSION = ['ece', 'eck', 'ech', 'ess'];
+    private static readonly HAS_VERSION_PATTERN = /^[a-z]+\s+\S/;
+
+    private validateNoVersionOnDeploymentType(key: string, value: string, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        if (!FrontmatterValidationProvider.DEPLOYMENT_TYPES_NO_VERSION.includes(key)) {
+            return;
+        }
+
+        const entries = value.split(',').map(e => e.trim());
+        const hasVersion = entries.some(e => FrontmatterValidationProvider.HAS_VERSION_PATTERN.test(e));
+        if (!hasVersion) {
+            return;
+        }
+
+        const valueRange = this.findValueRange(key, document, startLine);
+        if (valueRange) {
+            errors.push({
+                range: valueRange,
+                message: `Deployment type '${key}' should not include a version. Only 'self' supports version specifiers.`,
+                severity: vscode.DiagnosticSeverity.Warning,
+                code: 'deployment_type_with_version'
+            });
+        }
+    }
+
+    private validateEchEssMutualExclusion(obj: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
+        const hasEch = 'ech' in obj;
+        const hasEss = 'ess' in obj;
+        if (!hasEch || !hasEss) {
+            return;
+        }
+
+        const essRange = this.findFieldRange('ess', document, startLine);
+        if (essRange) {
+            errors.push({
+                range: essRange,
+                message: `'ess' and 'ech' should not be used together. 'ess' is deprecated; use 'ech' instead.`,
+                severity: vscode.DiagnosticSeverity.Warning,
+                code: 'ech_ess_coexist'
+            });
         }
     }
 
