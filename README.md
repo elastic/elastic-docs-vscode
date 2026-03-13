@@ -93,6 +93,7 @@ Example: `{subs}`wget elasticsearch-{{version}}.tar.gz``
 ### Content inclusion
 - `{include}` - Include content from other files
 - `{csv-include}` - Include and render CSV files as formatted tables
+- `{agent-skill}` - Standardized callout linking to an Elastic AI agent skill (requires `:url:`)
 
 ## Substitution variables
 

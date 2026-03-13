@@ -298,8 +298,53 @@ export class DirectiveDiagnosticProvider {
                 ));
             }
         }
+
+        // 8. Validate agent-skill directive url parameter
+        if (block.name === 'agent-skill') {
+            const urlParam = block.parameters.find(param => param.name === 'url');
+            const urlValue = urlParam?.value?.trim();
+
+            if (!urlParam || !urlValue) {
+                diagnostics.push(new vscode.Diagnostic(
+                    block.openingRange,
+                    "Directive 'agent-skill' requires a ':url:' parameter with an absolute GitHub URL",
+                    vscode.DiagnosticSeverity.Error
+                ));
+            } else {
+                if (!this.isAbsoluteUrl(urlValue)) {
+                    diagnostics.push(new vscode.Diagnostic(
+                        urlParam.range,
+                        "Parameter ':url:' for directive 'agent-skill' must be an absolute URL",
+                        vscode.DiagnosticSeverity.Error
+                    ));
+                } else if (!this.isGitHubUrl(urlValue)) {
+                    diagnostics.push(new vscode.Diagnostic(
+                        urlParam.range,
+                        "Parameter ':url:' for directive 'agent-skill' must point to github.com",
+                        vscode.DiagnosticSeverity.Error
+                    ));
+                }
+            }
+        }
         
         return diagnostics;
+    }
+
+    private isAbsoluteUrl(value: string): boolean {
+        try {
+            const parsed = new URL(value);
+            return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+        } catch {
+            return false;
+        }
+    }
+
+    private isGitHubUrl(value: string): boolean {
+        try {
+            return new URL(value).hostname === 'github.com';
+        } catch {
+            return false;
+        }
     }
 
     /**
