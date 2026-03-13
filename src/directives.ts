@@ -166,6 +166,13 @@ export const DIRECTIVES: readonly DirectiveDefinition[] = [
         template: '::::{button-group}\n:::{button}\n[Button Text](/link)\n:::\n::::',
         description: 'Group multiple buttons in a row.'
     },
+    {
+        name: 'agent-skill',
+        hasArgument: false,
+        parameters: ['url'],
+        template: ':::{agent-skill}\n:url: https://github.com/elastic/agent-skills@elasticsearch-esql\nA skill is available to help AI agents with this topic.\n:::',
+        description: 'Render a standardized callout that links to an Elastic AI agent skill.'
+    },
 ];
 
 export const PARAMETER_VALUES: { [key: string]: string[] } = {
@@ -178,5 +185,6 @@ export const PARAMETER_VALUES: { [key: string]: string[] } = {
     'separator': [',', ';', '|', 'tab'],
     'caption': ['Table caption'],
     'type': ['primary', 'secondary'],
-    'align': ['left', 'center', 'right']
+    'align': ['left', 'center', 'right'],
+    'url': ['https://github.com/elastic/agent-skills@elasticsearch-esql']
 };
