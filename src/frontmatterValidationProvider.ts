@@ -404,11 +404,6 @@ export class FrontmatterValidationProvider {
                     }
                 }
 
-                // Warn when all values in deployment/serverless are identical (use string shorthand instead)
-                if (key === 'deployment' || key === 'serverless') {
-                    this.validateObjectNotAllIdentical(key, value as Record<string, unknown>, errors, document, startLine);
-                }
-
                 // Warn when ech and ess coexist under deployment
                 if (key === 'deployment') {
                     this.validateEchEssMutualExclusion(value as Record<string, unknown>, errors, document, startLine);
@@ -418,34 +413,6 @@ export class FrontmatterValidationProvider {
 
         // Warn when ech and ess coexist as top-level applies_to keys
         this.validateEchEssMutualExclusion(appliesToObj, errors, document, startLine);
-    }
-
-    private validateObjectNotAllIdentical(parentKey: string, obj: Record<string, unknown>, errors: ValidationError[], document: vscode.TextDocument, startLine: number): void {
-        const values = Object.values(obj);
-        if (values.length < 2) {
-            return;
-        }
-
-        const allStrings = values.every(v => typeof v === 'string');
-        if (!allStrings) {
-            return;
-        }
-
-        const firstValue = values[0] as string;
-        const allIdentical = values.every(v => v === firstValue);
-        if (!allIdentical) {
-            return;
-        }
-
-        const keyRange = this.findFieldRange(parentKey, document, startLine);
-        if (keyRange) {
-            errors.push({
-                range: keyRange,
-                message: `All ${parentKey} types have the same value '${firstValue}'. Use the string shorthand instead: ${parentKey}: '${firstValue}'`,
-                severity: vscode.DiagnosticSeverity.Warning,
-                code: 'redundant_object_expansion'
-            });
-        }
     }
 
     private static readonly DEPLOYMENT_TYPES_NO_VERSION = ['ech', 'ess'];
